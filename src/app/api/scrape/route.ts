@@ -1,0 +1,61 @@
+import { NextResponse } from 'next/server';
+import { ApifyClient } from 'apify-client';
+
+export async function POST(req: Request) {
+  try {
+    const { prompt, location, niche, advanced } = await req.json();
+
+    if (!process.env.APIFY_API_TOKEN) {
+      return NextResponse.json({ error: 'Apify token missing.' }, { status: 500 });
+    }
+
+    const client = new ApifyClient({
+      token: process.env.APIFY_API_TOKEN,
+    });
+
+    const searchString = `${niche || ''} in ${location || ''} ${prompt || ''}`.trim();
+    
+    // We use the popular Google Maps Scraper for lead generation
+    const input = {
+      searchStringsArray: [searchString],
+      maxCrawledPlacesPerSearch: 20, // limit for fast response during demo
+      language: 'en',
+      maxImages: 0,
+      maxReviews: 0,
+    };
+
+    console.log('Starting Apify task with input:', input);
+
+    // Call the actor
+    const run = await client.actor('apify/google-maps-scraper').call(input);
+
+    console.log('Apify task finished:', run.id);
+
+    // Fetch the results
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+    // Clean and structure the data
+    const leads = items.map((item: any) => ({
+      companyName: item.title,
+      website: item.website || 'N/A',
+      phone: item.phone || item.phoneUnformatted || 'N/A',
+      address: item.address || 'N/A',
+      category: item.categoryName || 'N/A',
+      rating: item.totalScore || 'N/A',
+      reviews: item.reviewsCount || 0,
+      url: item.url || '',
+    }));
+
+    // Simple AI insights placeholder
+    const insights = `Found ${leads.length} records for "${searchString}". The average rating is ${
+      leads.length > 0
+        ? (leads.reduce((acc: number, val: any) => acc + (parseFloat(val.rating) || 0), 0) / leads.length).toFixed(1)
+        : 'N/A'
+    }.`;
+
+    return NextResponse.json({ leads, insights });
+  } catch (error: any) {
+    console.error('Error in scrape API:', error);
+    return NextResponse.json({ error: error.message || 'Failed to scrape data.' }, { status: 500 });
+  }
+}
