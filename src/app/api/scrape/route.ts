@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     console.log('Starting Apify task with input:', input);
 
     // Call the actor
-    const run = await client.actor('apify/google-maps-scraper').call(input);
+    const run = await client.actor('compass/crawler-google-places').call(input);
 
     console.log('Apify task finished:', run.id);
 
