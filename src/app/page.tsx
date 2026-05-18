@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check } from "lucide-react";
+import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Linkedin, Facebook } from "lucide-react";
 
 export default function Home() {
   const [niche, setNiche] = useState("roofing company");
@@ -29,6 +29,7 @@ export default function Home() {
   const [pitchSubject, setPitchSubject] = useState("");
   const [pitchLoading, setPitchLoading] = useState(false);
   const [pitchCopied, setPitchCopied] = useState(false);
+  const [enriching, setEnriching] = useState(false);
 
   const [activePage, setActivePage] = useState("scraper");
 
@@ -133,6 +134,44 @@ export default function Home() {
     navigator.clipboard.writeText(`Subject: ${pitchSubject}\n\n${pitchContent}`);
     setPitchCopied(true);
     setTimeout(() => setPitchCopied(false), 2000);
+  };
+
+  const handleEnrichLead = async () => {
+    if (!currentLead) return;
+    setEnriching(true);
+    
+    try {
+      const res = await fetch("/api/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          companyName: currentLead.companyName, 
+          website: currentLead.website,
+          city: currentLead.city 
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to enrich");
+      
+      const enrichedLead = { 
+        ...currentLead, 
+        decisionMaker: data.decisionMaker !== 'N/A' ? data.decisionMaker : currentLead.decisionMaker,
+        title: data.title || 'Owner / Founder',
+        linkedinUrl: data.linkedinUrl,
+        hasActiveAds: data.hasActiveAds,
+        enriched: true
+      };
+      
+      setCurrentLead(enrichedLead);
+      setResults(prev => prev.map(l => l.companyName === currentLead.companyName ? enrichedLead : l));
+      setCredits(prev => Math.max(0, prev - 10)); // Costs 10 credits for deep enrichment
+    } catch (err: any) {
+      console.error(err);
+      alert("Enrichment failed: " + err.message);
+    } finally {
+      setEnriching(false);
+    }
   };
 
   return (
@@ -460,28 +499,68 @@ export default function Home() {
               {/* TAB CONTENT: CONTACTS */}
               {activeTab === 'contacts' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <h4 className="text-[15px] font-bold text-white mb-4 tracking-tight">Key Decision Makers</h4>
-                  <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-6 mb-5 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-[15px] font-bold text-white tracking-tight">Key Decision Makers</h4>
+                    {!currentLead.enriched && (
+                      <button onClick={handleEnrichLead} disabled={enriching} className="bg-gradient-to-r from-[#4f6ef7] to-[#7c3aed] text-white px-4 py-2 rounded-lg text-[12px] font-bold flex items-center gap-2 hover:shadow-[0_0_15px_rgba(79,110,247,0.4)] disabled:opacity-50 transition-all">
+                        {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                        {enriching ? 'Enriching...' : 'Deep Search (10 Credits)'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-6 mb-5 flex items-center justify-between shadow-sm relative overflow-hidden">
+                    {enriching && (
+                      <div className="absolute inset-0 bg-[#09090f]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3">
+                        <Loader2 className="w-6 h-6 text-[#4f6ef7] animate-spin" />
+                        <span className="text-[12px] font-semibold text-white tracking-wide">Scraping LinkedIn & Meta Ads...</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-5">
                       <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#4f6ef7] to-[#7c3aed] flex items-center justify-center text-[20px] font-bold text-white shrink-0 shadow-lg ring-4 ring-[#4f6ef7]/10">
                         {currentLead.decisionMaker !== 'N/A' ? currentLead.decisionMaker.charAt(0) : '?'}
                       </div>
                       <div>
                         <div className="text-[16px] font-bold text-white tracking-tight">{currentLead.decisionMaker !== 'N/A' ? currentLead.decisionMaker : 'Unknown Contact'}</div>
-                        <div className="text-[13px] text-[#8888a0] font-medium mt-0.5">Owner / Founder</div>
-                        {currentLead.directEmail !== 'N/A' && <div className="text-[13px] text-[#22c55e] mt-2 flex items-center gap-2 font-medium bg-[#22c55e]/10 px-3 py-1 rounded-full w-fit"><Mail className="w-3.5 h-3.5"/> {currentLead.directEmail}</div>}
+                        <div className="text-[13px] text-[#8888a0] font-medium mt-0.5">{currentLead.title || 'Owner / Founder'}</div>
+                        <div className="flex items-center gap-3 mt-2">
+                          {currentLead.directEmail !== 'N/A' && <div className="text-[12px] text-[#22c55e] flex items-center gap-1.5 font-medium bg-[#22c55e]/10 px-2.5 py-1 rounded-md"><Mail className="w-3.5 h-3.5"/> {currentLead.directEmail}</div>}
+                          {currentLead.linkedinUrl && currentLead.linkedinUrl !== 'N/A' && (
+                            <a href={currentLead.linkedinUrl} target="_blank" rel="noreferrer" className="text-[12px] text-[#0077b5] flex items-center gap-1.5 font-medium bg-[#0077b5]/10 px-2.5 py-1 rounded-md hover:underline"><Linkedin className="w-3.5 h-3.5"/> LinkedIn Profile</a>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    {currentLead.decisionMaker !== 'N/A' ? (
+                    {currentLead.enriched ? (
+                      <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Fully Enriched</span>
+                    ) : currentLead.decisionMaker !== 'N/A' ? (
                       <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Verified</span>
                     ) : (
                       <span className="bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5"/> Needs Enrichment</span>
                     )}
                   </div>
-                  <div className="bg-[#4f6ef7]/5 border border-[#4f6ef7]/10 rounded-xl p-4 text-[13px] text-[#8888a0] leading-relaxed flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-[#4f6ef7] shrink-0 mt-0.5"/>
-                    <p>We automatically extracted <strong className="text-white">{currentLead.decisionMaker !== 'N/A' ? currentLead.decisionMaker : 'this profile'}</strong> by analyzing public domain metadata, bypassing the need for third-party credit consumption.</p>
-                  </div>
+
+                  {currentLead.enriched && (
+                    <div className="grid grid-cols-2 gap-4 mb-5">
+                      <div className="bg-[#16161f] border border-white/5 rounded-xl p-4">
+                        <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-2 font-bold flex items-center gap-2"><Facebook className="w-4 h-4"/> Meta Ads</div>
+                        <div className={`text-[14px] font-bold ${currentLead.hasActiveAds ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                          {currentLead.hasActiveAds ? 'Active Campaigns Found' : 'No Active Ads'}
+                        </div>
+                      </div>
+                      <div className="bg-[#16161f] border border-white/5 rounded-xl p-4">
+                        <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-2 font-bold flex items-center gap-2"><Linkedin className="w-4 h-4"/> Network Match</div>
+                        <div className="text-[14px] font-bold text-white">Profile Identified</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!currentLead.enriched && (
+                    <div className="bg-[#4f6ef7]/5 border border-[#4f6ef7]/10 rounded-xl p-4 text-[13px] text-[#8888a0] leading-relaxed flex items-start gap-3">
+                      <Sparkles className="w-5 h-5 text-[#4f6ef7] shrink-0 mt-0.5"/>
+                      <p>Run a <strong className="text-white">Deep Search</strong> to orchestrate LinkedIn and Meta Ads scrapers specifically for this prospect. This will consume 10 credits due to compute intensity.</p>
+                    </div>
+                  )}
                 </div>
               )}
 
