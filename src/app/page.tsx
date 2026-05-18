@@ -320,9 +320,20 @@ export default function Home() {
                             </span>
                           </td>
                           <td className="px-[18px] py-[13px] align-middle">
-                            {l.website !== 'N/A' ? <span className="text-[#f59e0b] text-[12px]">⚠️ Weak site</span> : <span className="text-[#ef4444] text-[12px]">❌ No website</span>}
+                            {l.website !== 'N/A' ? (
+                              <a href={l.website} target="_blank" rel="noopener noreferrer" className="text-[#4f6ef7] hover:underline flex items-center gap-1.5 text-[12px] font-medium">
+                                🌐 Visit Site
+                              </a>
+                            ) : (
+                              <span className="text-[#ef4444] text-[12px]">❌ No website</span>
+                            )}
                           </td>
-                          <td className="px-[18px] py-[13px] align-middle text-[12px] text-[#8888a0]">{l.phone}</td>
+                          <td className="px-[18px] py-[13px] align-middle text-[12px] text-[#8888a0]">
+                            <div className="flex flex-col gap-1">
+                              {l.phone !== 'N/A' && <span className="flex items-center gap-1.5">📞 {l.phone}</span>}
+                              {l.email && l.email !== 'N/A' && <span className="flex items-center gap-1.5 text-white">✉️ {l.email}</span>}
+                            </div>
+                          </td>
                           <td className="px-[18px] py-[13px] align-middle">
                             <div className="flex items-center gap-2">
                               <div className="flex-1 h-1 bg-[#16161f] rounded-full overflow-hidden max-w-[70px]">

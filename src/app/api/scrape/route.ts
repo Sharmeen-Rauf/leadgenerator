@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       language: 'en',
       maxImages: 0,
       maxReviews: 0,
+      scrapeWebsite: true,
+      extractEmailsAndContacts: true,
     };
 
     console.log('Starting Apify task with input:', input);
@@ -40,6 +42,7 @@ export async function POST(req: Request) {
       
       const website = item.website || 'N/A';
       const phone = item.phone || item.phoneUnformatted || 'N/A';
+      const email = item.email || (item.emails && item.emails.length > 0 ? item.emails[0] : null) || 'N/A';
       const category = item.categoryName || 'N/A';
       const rating = item.totalScore || 0;
       const reviews = item.reviewsCount || 0;
@@ -78,6 +81,7 @@ export async function POST(req: Request) {
         companyName: item.title,
         website,
         phone,
+        email,
         address: item.address || 'N/A',
         city: location || 'N/A',
         category,
