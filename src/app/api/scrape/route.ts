@@ -34,20 +34,47 @@ export async function POST(req: Request) {
     // Fetch the results
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
-    // Clean and structure the data
-    const leads = items.map((item: any) => ({
-      companyName: item.title,
-      website: item.website || 'N/A',
-      phone: item.phone || item.phoneUnformatted || 'N/A',
-      address: item.address || 'N/A',
-      category: item.categoryName || 'N/A',
-      rating: item.totalScore || 'N/A',
-      reviews: item.reviewsCount || 0,
-      url: item.url || '',
-    }));
+    // Clean, structure, and score the data
+    const leads = items.map((item: any) => {
+      let score = 0;
+      
+      const website = item.website || 'N/A';
+      const phone = item.phone || item.phoneUnformatted || 'N/A';
+      const category = item.categoryName || 'N/A';
+      const rating = item.totalScore || 0;
+      const reviews = item.reviewsCount || 0;
+
+      // Scoring Algorithm based on BANT & Financial Stability proxies
+      if (website !== 'N/A') score += 25; // Digital Presence
+      if (phone !== 'N/A') score += 25; // Accessibility
+      if (rating >= 4.0) score += 20; // Good Reputation (Quality)
+      if (reviews >= 50) score += 20; // Established/Stable Business
+      if (category !== 'N/A') score += 10; // Defined niche fit
+
+      let temperature = 'Cold';
+      if (score >= 80) temperature = 'Hot';
+      else if (score >= 50) temperature = 'Warm';
+
+      return {
+        companyName: item.title,
+        website,
+        phone,
+        address: item.address || 'N/A',
+        category,
+        rating: rating || 'N/A',
+        reviews,
+        url: item.url || '',
+        score,
+        temperature,
+      };
+    });
+
+    // Sort leads so Hot ones appear first
+    leads.sort((a, b) => b.score - a.score);
 
     // Simple AI insights placeholder
-    const insights = `Found ${leads.length} records for "${searchString}". The average rating is ${
+    const hotLeadsCount = leads.filter((l: any) => l.temperature === 'Hot').length;
+    const insights = `Found ${leads.length} records for "${searchString}". ${hotLeadsCount} of them are identified as "Hot" leads based on their digital presence and reputation. The average rating is ${
       leads.length > 0
         ? (leads.reduce((acc: number, val: any) => acc + (parseFloat(val.rating) || 0), 0) / leads.length).toFixed(1)
         : 'N/A'

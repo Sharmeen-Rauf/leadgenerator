@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Loader2, Download, Building2, MapPin, Target, Sparkles, ChevronRight, Globe, Phone, Map } from "lucide-react";
+import { Search, Loader2, Download, Building2, MapPin, Target, Sparkles, ChevronRight, Globe, Phone, Map, Flame, Sun, Snowflake } from "lucide-react";
 
 export default function Home() {
   const [niche, setNiche] = useState("");
@@ -46,7 +46,7 @@ export default function Home() {
   const exportCSV = () => {
     if (!results || !results.leads || results.leads.length === 0) return;
     
-    const headers = ["Company Name", "Category", "Rating", "Reviews", "Phone", "Website", "Address"];
+    const headers = ["Company Name", "Category", "Rating", "Reviews", "Phone", "Website", "Address", "Score", "Temperature"];
     const rows = results.leads.map((lead: any) => [
       `"${lead.companyName}"`,
       `"${lead.category}"`,
@@ -54,7 +54,9 @@ export default function Home() {
       `"${lead.reviews}"`,
       `"${lead.phone}"`,
       `"${lead.website}"`,
-      `"${lead.address}"`
+      `"${lead.address}"`,
+      `"${lead.score}"`,
+      `"${lead.temperature}"`
     ]);
 
     const csvContent = [headers.join(","), ...rows.map((r: any) => r.join(","))].join("\n");
@@ -193,6 +195,7 @@ export default function Home() {
                   <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase text-xs">
                     <tr>
                       <th className="px-6 py-4">Company Name</th>
+                      <th className="px-6 py-4">Temperature</th>
                       <th className="px-6 py-4">Category</th>
                       <th className="px-6 py-4">Rating</th>
                       <th className="px-6 py-4">Contact</th>
@@ -207,6 +210,23 @@ export default function Home() {
                             <Building2 className="w-4 h-4" />
                           </div>
                           {lead.companyName}
+                        </td>
+                        <td className="px-6 py-4">
+                          {lead.temperature === 'Hot' && (
+                            <span className="inline-flex items-center bg-red-500/10 text-red-500 px-2.5 py-1 rounded-md text-xs font-semibold border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                              <Flame className="w-3.5 h-3.5 mr-1" /> Hot ({lead.score})
+                            </span>
+                          )}
+                          {lead.temperature === 'Warm' && (
+                            <span className="inline-flex items-center bg-orange-500/10 text-orange-400 px-2.5 py-1 rounded-md text-xs font-semibold border border-orange-500/20">
+                              <Sun className="w-3.5 h-3.5 mr-1" /> Warm ({lead.score})
+                            </span>
+                          )}
+                          {lead.temperature === 'Cold' && (
+                            <span className="inline-flex items-center bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-md text-xs font-semibold border border-blue-500/20">
+                              <Snowflake className="w-3.5 h-3.5 mr-1" /> Cold ({lead.score})
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">{lead.category}</td>
                         <td className="px-6 py-4">
