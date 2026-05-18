@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Linkedin, Activity } from "lucide-react";
+import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Network, Activity } from "lucide-react";
 
 export default function Home() {
   const [niche, setNiche] = useState("roofing company");
@@ -526,7 +526,7 @@ export default function Home() {
                         <div className="flex items-center gap-3 mt-2">
                           {currentLead.directEmail !== 'N/A' && <div className="text-[12px] text-[#22c55e] flex items-center gap-1.5 font-medium bg-[#22c55e]/10 px-2.5 py-1 rounded-md"><Mail className="w-3.5 h-3.5"/> {currentLead.directEmail}</div>}
                           {currentLead.linkedinUrl && currentLead.linkedinUrl !== 'N/A' && (
-                            <a href={currentLead.linkedinUrl} target="_blank" rel="noreferrer" className="text-[12px] text-[#0077b5] flex items-center gap-1.5 font-medium bg-[#0077b5]/10 px-2.5 py-1 rounded-md hover:underline"><Linkedin className="w-3.5 h-3.5"/> LinkedIn Profile</a>
+                            <a href={currentLead.linkedinUrl} target="_blank" rel="noreferrer" className="text-[12px] text-[#0077b5] flex items-center gap-1.5 font-medium bg-[#0077b5]/10 px-2.5 py-1 rounded-md hover:underline"><Network className="w-3.5 h-3.5"/> LinkedIn Profile</a>
                           )}
                         </div>
                       </div>
@@ -549,7 +549,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="bg-[#16161f] border border-white/5 rounded-xl p-4">
-                        <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-2 font-bold flex items-center gap-2"><Linkedin className="w-4 h-4"/> Network Match</div>
+                        <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-2 font-bold flex items-center gap-2"><Network className="w-4 h-4"/> Network Match</div>
                         <div className="text-[14px] font-bold text-white">Profile Identified</div>
                       </div>
                     </div>
