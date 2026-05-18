@@ -18,6 +18,9 @@ export default function Home() {
   const [scoreFilter, setScoreFilter] = useState("");
   const [oppFilter, setOppFilter] = useState("");
 
+  // Credit System
+  const [credits, setCredits] = useState(1000);
+
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [currentLead, setCurrentLead] = useState<any>(null);
@@ -57,6 +60,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || "Failed to fetch");
       
       setResults(data.leads || []);
+      setCredits(prev => Math.max(0, prev - (data.leads?.length || 0)));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -76,7 +80,7 @@ export default function Home() {
 
   const exportCSV = () => {
     if (results.length === 0) return;
-    const headers = ["Business", "Category", "City", "Rating", "Reviews", "Phone", "Has Website", "AI Score", "Opportunities"];
+    const headers = ["Business", "Category", "City", "Rating", "Reviews", "Phone", "Email", "Decision Maker", "Direct Email", "Has Website", "AI Score", "Opportunities"];
     const rows = results.map((l: any) => [
       `"${l.companyName}"`,
       `"${l.category}"`,
@@ -84,6 +88,9 @@ export default function Home() {
       `"${l.rating}"`,
       `"${l.reviews}"`,
       `"${l.phone}"`,
+      `"${l.email}"`,
+      `"${l.decisionMaker}"`,
+      `"${l.directEmail}"`,
       `"${l.website !== 'N/A' ? 'Yes' : 'No'}"`,
       `"${l.score}"`,
       `"${l.opps.join(';')}"`
@@ -159,7 +166,7 @@ export default function Home() {
         <div className="p-4 border-t border-white/5">
           <div className="bg-[#4f6ef7]/10 border border-[#4f6ef7]/20 rounded-xl p-3">
             <div className="text-xs text-[#4f6ef7] font-semibold">⚡ Pro Plan</div>
-            <div className="text-[11px] text-[#8888a0] mt-0.5">Unlimited Credits</div>
+            <div className="text-[11px] text-[#8888a0] mt-0.5">{1000 - credits} / 1000 credits used</div>
           </div>
         </div>
       </div>
@@ -390,9 +397,37 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex gap-1 mb-4 bg-[#16161f] rounded-lg p-1">
                 <button onClick={() => setActiveTab('analysis')} className={`flex-1 py-2 text-center text-[13px] rounded-md font-medium transition-colors ${activeTab === 'analysis' ? 'bg-[#111118] text-white shadow-sm' : 'text-[#8888a0]'}`}>📊 Site Analysis</button>
+                <button onClick={() => setActiveTab('contacts')} className={`flex-1 py-2 text-center text-[13px] rounded-md font-medium transition-colors ${activeTab === 'contacts' ? 'bg-[#111118] text-white shadow-sm' : 'text-[#8888a0]'}`}>👥 Contacts</button>
                 <button onClick={() => { setActiveTab('pitch'); if (!pitchContent) generatePitch(); }} className={`flex-1 py-2 text-center text-[13px] rounded-md font-medium transition-colors ${activeTab === 'pitch' ? 'bg-[#111118] text-white shadow-sm' : 'text-[#8888a0]'}`}>✉️ AI Pitch</button>
                 <button onClick={() => setActiveTab('opportunities')} className={`flex-1 py-2 text-center text-[13px] rounded-md font-medium transition-colors ${activeTab === 'opportunities' ? 'bg-[#111118] text-white shadow-sm' : 'text-[#8888a0]'}`}>🎯 Opportunities</button>
               </div>
+
+              {/* TAB CONTENT: CONTACTS */}
+              {activeTab === 'contacts' && (
+                <div>
+                  <h4 className="text-[14px] font-semibold mb-3">Decision Makers & Contacts</h4>
+                  <div className="bg-[#16161f] border border-white/5 rounded-xl p-4 mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4f6ef7] to-[#7c3aed] flex items-center justify-center text-[16px] font-bold text-white shrink-0">
+                        {currentLead.decisionMaker !== 'N/A' ? currentLead.decisionMaker.charAt(0) : '?'}
+                      </div>
+                      <div>
+                        <div className="text-[15px] font-semibold text-white">{currentLead.decisionMaker !== 'N/A' ? currentLead.decisionMaker : 'Unknown Contact'}</div>
+                        <div className="text-[13px] text-[#8888a0]">Owner / Founder</div>
+                        {currentLead.directEmail !== 'N/A' && <div className="text-[12px] text-[#22c55e] mt-1 flex items-center gap-1">✉️ {currentLead.directEmail}</div>}
+                      </div>
+                    </div>
+                    {currentLead.decisionMaker !== 'N/A' ? (
+                      <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider">Verified</span>
+                    ) : (
+                      <span className="bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider">Needs Enrichment</span>
+                    )}
+                  </div>
+                  <div className="bg-[#111118] border border-white/5 rounded-lg p-3 text-[12px] text-[#8888a0] leading-relaxed">
+                    <strong>Note:</strong> We extracted the name <strong className="text-white">{currentLead.decisionMaker}</strong> automatically by scanning public emails found via Apify web crawling. This saves you from paying external API providers!
+                  </div>
+                </div>
+              )}
 
               {/* TAB CONTENT: ANALYSIS */}
               {activeTab === 'analysis' && (

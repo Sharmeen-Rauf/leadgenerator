@@ -39,10 +39,30 @@ export async function POST(req: Request) {
     // Clean, structure, and score the data
     const leads = items.map((item: any) => {
       let score = 0;
-      
       const website = item.website || 'N/A';
       const phone = item.phone || item.phoneUnformatted || 'N/A';
-      const email = item.email || (item.emails && item.emails.length > 0 ? item.emails[0] : null) || 'N/A';
+      
+      let email = 'N/A';
+      let decisionMaker = 'N/A';
+      let directEmail = 'N/A';
+
+      if (item.emails && item.emails.length > 0) {
+        email = item.emails[0];
+        
+        // Try to find a personal email for the Decision Maker
+        const genericPrefixes = ['info', 'contact', 'sales', 'support', 'admin', 'hello', 'office', 'enquiries'];
+        for (const e of item.emails) {
+          const prefix = e.split('@')[0].toLowerCase();
+          if (!genericPrefixes.includes(prefix)) {
+            decisionMaker = prefix.charAt(0).toUpperCase() + prefix.slice(1); // Capitalize name
+            directEmail = e;
+            break;
+          }
+        }
+      } else if (item.email) {
+        email = item.email;
+      }
+
       const category = item.categoryName || 'N/A';
       const rating = item.totalScore || 0;
       const reviews = item.reviewsCount || 0;
@@ -82,6 +102,8 @@ export async function POST(req: Request) {
         website,
         phone,
         email,
+        decisionMaker,
+        directEmail,
         address: item.address || 'N/A',
         city: location || 'N/A',
         category,
