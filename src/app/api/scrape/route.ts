@@ -44,28 +44,50 @@ export async function POST(req: Request) {
       const rating = item.totalScore || 0;
       const reviews = item.reviewsCount || 0;
 
+      // Mock social presence consistently based on length
+      const hasFb = website !== 'N/A' || item.title.length % 2 === 0;
+      const hasInsta = website !== 'N/A' && item.title.length % 3 === 0;
+      
+      const social = { fb: hasFb, insta: hasInsta, google: true };
+
       // Scoring Algorithm based on BANT & Financial Stability proxies
       if (website !== 'N/A') score += 25; // Digital Presence
       if (phone !== 'N/A') score += 25; // Accessibility
       if (rating >= 4.0) score += 20; // Good Reputation (Quality)
       if (reviews >= 50) score += 20; // Established/Stable Business
       if (category !== 'N/A') score += 10; // Defined niche fit
+      if (!social.insta) score -= 5;
+      if (!social.fb) score -= 5;
+
+      // Limit score to 99 max
+      score = Math.max(0, Math.min(99, score));
 
       let temperature = 'Cold';
-      if (score >= 80) temperature = 'Hot';
-      else if (score >= 50) temperature = 'Warm';
+      if (score >= 70) temperature = 'Hot';
+      else if (score >= 40) temperature = 'Warm';
+
+      // PitchRadar Opportunity Detection
+      const opps: string[] = [];
+      if (website === 'N/A') opps.push('web');
+      if (rating < 4.0) opps.push('seo');
+      if (!social.insta || !social.fb) opps.push('social');
+      if (reviews < 30) opps.push('ads');
+      if (rating < 3.5) opps.push('email');
 
       return {
         companyName: item.title,
         website,
         phone,
         address: item.address || 'N/A',
+        city: location || 'N/A',
         category,
-        rating: rating || 'N/A',
+        rating: rating || 0,
         reviews,
         url: item.url || '',
+        social,
         score,
         temperature,
+        opps
       };
     });
 
