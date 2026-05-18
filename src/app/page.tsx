@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Copy, Send, Sparkles } from "lucide-react";
+import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Copy, Send, Sparkles, Target } from "lucide-react";
 
 export default function Home() {
   const [niche, setNiche] = useState("roofing company");
