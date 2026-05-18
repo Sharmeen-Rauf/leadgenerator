@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Linkedin, Facebook } from "lucide-react";
+import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Linkedin, Activity } from "lucide-react";
 
 export default function Home() {
   const [niche, setNiche] = useState("roofing company");
@@ -543,7 +543,7 @@ export default function Home() {
                   {currentLead.enriched && (
                     <div className="grid grid-cols-2 gap-4 mb-5">
                       <div className="bg-[#16161f] border border-white/5 rounded-xl p-4">
-                        <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-2 font-bold flex items-center gap-2"><Facebook className="w-4 h-4"/> Meta Ads</div>
+                        <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-2 font-bold flex items-center gap-2"><Activity className="w-4 h-4"/> Meta Ads</div>
                         <div className={`text-[14px] font-bold ${currentLead.hasActiveAds ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
                           {currentLead.hasActiveAds ? 'Active Campaigns Found' : 'No Active Ads'}
                         </div>
