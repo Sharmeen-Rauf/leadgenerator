@@ -56,12 +56,12 @@ async function analyzeWebsite(url: string): Promise<any> {
     social.tiktok = /tiktok\.com\/@[\w.-]+/i.test(html);
 
     // --- SEO DEEP ---
-    const titleM = html.match(/<title[^>]*>(.*?)<\/title>/is);
+    const titleM = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const titleText = titleM ? titleM[1].trim() : null;
     const descM = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
     const descText = descM ? descM[1].trim() : null;
-    const h1s = html.match(/<h1[^>]*>.*?<\/h1>/gis) || [];
-    const h2s = html.match(/<h2[^>]*>.*?<\/h2>/gis) || [];
+    const h1s = html.match(/<h1[^>]*>[\s\S]*?<\/h1>/gi) || [];
+    const h2s = html.match(/<h2[^>]*>[\s\S]*?<\/h2>/gi) || [];
     const hasOG = /property=["']og:/i.test(html);
     const hasSchema = html.includes('application/ld+json');
     const hasFaqSchema = h.includes('"faqpage"') || h.includes('faqpage');
