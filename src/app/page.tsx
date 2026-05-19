@@ -780,6 +780,34 @@ export default function Home() {
                         </div>
                       </div>
                     )}
+                    {currentLead.opps.includes('ads') && (
+                      <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex gap-4 items-start shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center shrink-0 border border-[#3b82f6]/20">
+                          <TrendingUp className="w-5 h-5 text-[#3b82f6]" />
+                        </div>
+                        <div>
+                          <div className="text-[14px] font-bold text-white mb-1.5 flex items-center gap-2">
+                            Paid Traffic & Retargeting Setup
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#f59e0b]/10 text-[#f59e0b] font-bold uppercase tracking-wider flex items-center gap-1"><Zap className="w-3 h-3"/> Med Impact</span>
+                          </div>
+                          <div className="text-[13px] text-[#8888a0] leading-relaxed font-medium">No tracking pixels or active campaigns detected. Setting up Google Ads and Facebook Retargeting pixels will capture high-intent buyers searching for local services.</div>
+                        </div>
+                      </div>
+                    )}
+                    {currentLead.opps.includes('email') && (
+                      <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex gap-4 items-start shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#10b981]/10 flex items-center justify-center shrink-0 border border-[#10b981]/20">
+                          <Mail className="w-5 h-5 text-[#10b981]" />
+                        </div>
+                        <div>
+                          <div className="text-[14px] font-bold text-white mb-1.5 flex items-center gap-2">
+                            Direct Outreach Campaign
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#3b82f6]/10 text-[#3b82f6] font-bold uppercase tracking-wider flex items-center gap-1"><Zap className="w-3 h-3"/> Med Impact</span>
+                          </div>
+                          <div className="text-[13px] text-[#8888a0] leading-relaxed font-medium">Missing direct point of contact. Cold outreach sequence targeting generic inboxes needs transition to personalized decision-maker campaigns to increase response rate.</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
