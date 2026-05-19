@@ -140,31 +140,43 @@ export async function POST(req: Request) {
     const searchQuery = prompt || `${niche} in ${location}`;
     console.log(`[Scrape] Starting: "${searchQuery}"`);
 
-    // FAST Apify call — just business data, NO website crawling
+    // Apify call — basic business data + contacts (fast, no deep website crawl)
     const run = await client.actor('compass/crawler-google-places').call({
       searchStringsArray: [searchQuery],
       maxCrawledPlacesPerSearch: 20,
       language: 'en',
-      scrapeContacts: false,
+      scrapeContacts: true,
       scrapeWebsite: false,
-      extractEmailsAndContacts: false,
+      extractEmailsAndContacts: true,
     });
 
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
     console.log(`[Scrape] Got ${items.length} businesses. Now analyzing websites...`);
 
-    // FAST parallel website analysis (our own — no Apify needed)
+    // FAST parallel website analysis
     const leads = await Promise.all(items.map(async (item: any) => {
       const website = item.website || item.url || 'N/A';
       const phone = item.phone || item.phoneUnformatted || 'N/A';
       const rating = item.totalScore || item.rating || 0;
       const reviews = item.reviewsCount || 0;
 
+      // Social data from Apify (RELIABLE — straight from Google Maps listing)
+      const hasFacebook = !!(item.facebookUrl || item.facebookPage);
+      const hasInstagram = !!(item.instagramUrl || item.instagramProfile);
+      const facebookUrl = item.facebookUrl || item.facebookPage || null;
+      const instagramUrl = item.instagramUrl || item.instagramProfile || null;
+
       // Run our own fast website analysis
       const siteData = await analyzeWebsite(website);
 
-      // Extract emails — from site analysis
-      const allEmails = siteData.emails || [];
+      // Merge social: Apify data + HTML detection
+      const socialFb = hasFacebook || !!siteData.social?.facebook;
+      const socialInsta = hasInstagram || !!siteData.social?.instagram;
+
+      // Extract emails — from Apify first, then site analysis
+      const apifyEmails = item.emails || [];
+      const siteEmails = siteData.emails || [];
+      const allEmails = [...new Set([...apifyEmails, ...siteEmails])];
       const genericPrefixes = ['info', 'contact', 'sales', 'support', 'admin', 'hello', 'office', 'team', 'service', 'mail', 'help'];
       
       let decisionMaker = 'N/A';
@@ -182,8 +194,8 @@ export async function POST(req: Request) {
       // Opportunity detection
       const opps: string[] = [];
       if (!website || website === 'N/A') opps.push('web');
-      if (siteData.seo?.seo_score < 40) opps.push('seo');
-      if (!siteData.social?.instagram || !siteData.social?.facebook) opps.push('social');
+      if (siteData.seo?.seo_score < 40 && siteData.exists) opps.push('seo');
+      if (!socialInsta || !socialFb) opps.push('social');
       if (reviews < 30) opps.push('ads');
       if (allEmails.length === 0) opps.push('email');
 
@@ -198,8 +210,8 @@ export async function POST(req: Request) {
       if (allEmails.length === 0) score += 10;
       if (siteData.pixels?.length === 0 && siteData.exists) score += 10;
       if (siteData.seo?.seo_score < 40 && siteData.exists) score += 10;
-      if (!siteData.social?.facebook) score += 5;
-      if (!siteData.social?.instagram) score += 5;
+      if (!socialFb) score += 5;
+      if (!socialInsta) score += 5;
       score = Math.min(score, 99);
 
       let temperature = 'Cold';
@@ -221,9 +233,11 @@ export async function POST(req: Request) {
         opps,
         decisionMaker,
         directEmail,
+        facebookUrl,
+        instagramUrl,
         social: {
-          fb: !!siteData.social?.facebook,
-          insta: !!siteData.social?.instagram,
+          fb: socialFb,
+          insta: socialInsta,
           google: true,
         },
         // FULL SITE INTELLIGENCE

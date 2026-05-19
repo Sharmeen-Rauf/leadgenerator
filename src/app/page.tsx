@@ -564,40 +564,94 @@ export default function Home() {
                 </div>
               )}
 
-              {/* TAB CONTENT: ANALYSIS */}
-              {activeTab === 'analysis' && (
+              {/* TAB CONTENT: ANALYSIS — REAL WEBSITE AUDIT */}
+              {activeTab === 'analysis' && (() => {
+                const sa = currentLead.siteAnalysis || {};
+                const seoScore = sa.seoScore || 0;
+                const siteScore = sa.siteScore || 0;
+                return (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Globe className="w-4 h-4"/> Web Presence</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Domain Active</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.website !== 'N/A' ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{currentLead.website !== 'N/A' ? <><AlertTriangle className="w-3.5 h-3.5"/> Needs Review</> : <><XCircle className="w-3.5 h-3.5"/> Missing</>}</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Mobile Optimization</span><span className="text-[13px] font-bold text-[#ef4444] flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5"/> Critical</span></div>
+                  {/* TOP SCORE BAR */}
+                  <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 mb-5 flex items-center justify-between">
+                    <div>
+                      <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] font-bold mb-1">Overall Site Score</div>
+                      <div className="text-[28px] font-bold text-white tracking-tight">{siteScore}<span className="text-[16px] text-[#5a5a72]">/100</span></div>
                     </div>
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Star className="w-4 h-4"/> Reputation</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Aggregate Rating</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.rating >= 4.0 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}><Star className={`w-3.5 h-3.5 ${currentLead.rating >= 4.0 ? 'fill-current' : ''}`}/> {currentLead.rating || 'N/A'}</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Review Volume</span><span className="text-[13px] font-bold text-white">{currentLead.reviews}</span></div>
-                    </div>
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Image className="w-4 h-4"/> Social Signals</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Facebook Page</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.social?.fb ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{currentLead.social?.fb ? <><CheckCircle2 className="w-3.5 h-3.5"/> Verified</> : <><XCircle className="w-3.5 h-3.5"/> None</>}</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Instagram Profile</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.social?.insta ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{currentLead.social?.insta ? <><CheckCircle2 className="w-3.5 h-3.5"/> Verified</> : <><XCircle className="w-3.5 h-3.5"/> None</>}</span></div>
-                    </div>
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Search className="w-4 h-4"/> Visibility</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Local Pack Rank</span><span className="text-[13px] font-bold text-[#ef4444] flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5"/> Weak</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Keyword Index</span><span className="text-[13px] font-bold text-[#ef4444] flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5"/> Poor</span></div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">Platform</div>
+                        <div className="text-[14px] font-bold text-white mt-0.5">{sa.cms || 'Unknown'}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">Load Time</div>
+                        <div className={`text-[14px] font-bold mt-0.5 ${(sa.loadTime || 0) < 3000 ? 'text-[#22c55e]' : (sa.loadTime || 0) < 5000 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{sa.loadTime ? `${(sa.loadTime / 1000).toFixed(1)}s` : 'N/A'}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">SSL</div>
+                        <div className={`text-[14px] font-bold mt-0.5 ${sa.ssl ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.ssl ? 'Secure' : 'None'}</div>
+                      </div>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-5">
+                    {/* WEB PRESENCE */}
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
+                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Globe className="w-4 h-4"/> Web Presence</h4>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Domain</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${sa.exists ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.exists ? <><CheckCircle2 className="w-3.5 h-3.5"/> Active</> : <><XCircle className="w-3.5 h-3.5"/> Missing</>}</span></div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">CMS / Platform</span><span className={`text-[13px] font-bold ${sa.cms === 'Wix' || sa.cms === 'GoDaddy' ? 'text-[#f59e0b]' : 'text-white'}`}>{sa.cms || 'N/A'}</span></div>
+                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Frameworks</span><span className="text-[13px] font-bold text-white">{sa.frameworks?.length > 0 ? sa.frameworks.join(', ') : 'None detected'}</span></div>
+                    </div>
+                    {/* REPUTATION */}
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
+                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Star className="w-4 h-4"/> Reputation</h4>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Google Rating</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.rating >= 4.0 ? 'text-[#f59e0b]' : currentLead.rating > 0 ? 'text-[#ef4444]' : 'text-[#5a5a72]'}`}><Star className={`w-3.5 h-3.5 ${currentLead.rating >= 4.0 ? 'fill-current' : ''}`}/> {currentLead.rating > 0 ? `${currentLead.rating} stars` : 'N/A'}</span></div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Reviews</span><span className={`text-[13px] font-bold ${currentLead.reviews > 30 ? 'text-[#22c55e]' : currentLead.reviews > 10 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{currentLead.reviews} reviews</span></div>
+                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">SEO Title</span><span className="text-[12px] font-medium text-white max-w-[180px] truncate">{sa.seoTitle || 'Missing'}</span></div>
+                    </div>
+                    {/* SOCIAL SIGNALS */}
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
+                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Image className="w-4 h-4"/> Social Presence</h4>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Facebook</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.social?.fb ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{currentLead.social?.fb ? <><CheckCircle2 className="w-3.5 h-3.5"/> Found</> : <><XCircle className="w-3.5 h-3.5"/> Not Found</>}</span></div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Instagram</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.social?.insta ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{currentLead.social?.insta ? <><CheckCircle2 className="w-3.5 h-3.5"/> Found</> : <><XCircle className="w-3.5 h-3.5"/> Not Found</>}</span></div>
+                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Google Maps</span><span className="text-[13px] font-bold text-[#22c55e] flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Listed</span></div>
+                    </div>
+                    {/* MARKETING TECH */}
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
+                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Zap className="w-4 h-4"/> Marketing Stack</h4>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Analytics</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${sa.analytics?.length > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.analytics?.length > 0 ? <><CheckCircle2 className="w-3.5 h-3.5"/> {sa.analytics.join(', ')}</> : <><XCircle className="w-3.5 h-3.5"/> None</>}</span></div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Ad Pixels</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${sa.pixels?.length > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.pixels?.length > 0 ? <><CheckCircle2 className="w-3.5 h-3.5"/> {sa.pixels.join(', ')}</> : <><XCircle className="w-3.5 h-3.5"/> None</>}</span></div>
+                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">SEO Score</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-[#09090f] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${seoScore}%`, background: seoScore >= 60 ? '#22c55e' : seoScore >= 40 ? '#f59e0b' : '#ef4444' }}></div></div>
+                          <span className={`text-[13px] font-bold ${seoScore >= 60 ? 'text-[#22c55e]' : seoScore >= 40 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{seoScore}/100</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* OPPORTUNITIES DETECTED */}
+                  {sa.opportunities && sa.opportunities.length > 0 && (
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 mb-5">
+                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-3 font-bold flex items-center gap-2"><Target className="w-4 h-4"/> Vulnerabilities Detected</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {sa.opportunities.map((opp: string, i: number) => (
+                          <span key={i} className="bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5"><AlertTriangle className="w-3 h-3"/> {opp}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI DIAGNOSTIC */}
                   <div className="bg-gradient-to-r from-[#4f6ef7]/10 to-transparent border-l-4 border-[#4f6ef7] rounded-r-xl p-5 text-[14px] text-[#8888a0] leading-relaxed flex gap-4">
                     <Sparkles className="w-6 h-6 text-[#4f6ef7] shrink-0"/>
                     <div>
                       <strong className="text-white block mb-1">AI Diagnostic Report</strong> 
-                      {currentLead.companyName} has identifiable revenue leaks in their digital funnel. {currentLead.website === 'N/A' && <span className="text-white">The absence of a dedicated domain is their primary growth blocker. </span>} {currentLead.rating < 4.0 && <span className="text-white">Reputation scores below 4.0 are causing severe local search penalties. </span>} Algorithm designates this as a <strong className={currentLead.score >= 70 ? 'text-[#22c55e]' : 'text-[#f59e0b]'}>{currentLead.score >= 70 ? 'High-Priority' : 'Moderate-Priority'} target</strong> for {service} solutions.
+                      {currentLead.companyName} {sa.exists ? `runs on ${sa.cms || 'an unidentified platform'}${sa.loadTime ? ` with a ${(sa.loadTime / 1000).toFixed(1)}s load time` : ''}.` : 'has no website — their biggest growth blocker.'} {currentLead.rating > 0 && currentLead.rating < 4.0 && <span className="text-white">Their {currentLead.rating}-star rating is causing local search ranking penalties. </span>} {seoScore < 40 && sa.exists && <span className="text-white">SEO score of {seoScore}/100 means they are virtually invisible in organic search. </span>} {sa.pixels?.length === 0 && sa.exists && <span className="text-white">No tracking pixels means they cannot run retargeting campaigns. </span>} Algorithm designates this as a <strong className={currentLead.score >= 70 ? 'text-[#22c55e]' : 'text-[#f59e0b]'}>{currentLead.score >= 70 ? 'High-Priority' : 'Moderate-Priority'} target</strong> for {service} solutions.
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* TAB CONTENT: PITCH */}
               {activeTab === 'pitch' && (
