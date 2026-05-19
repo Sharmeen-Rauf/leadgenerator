@@ -12,7 +12,7 @@ async function analyzeWebsite(url: string): Promise<any> {
     const start = Date.now();
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
-      signal: AbortSignal.timeout(8000), redirect: 'follow',
+      signal: AbortSignal.timeout(4000), redirect: 'follow',
     });
     const loadTime = Date.now() - start;
     const html = await res.text();
@@ -273,25 +273,29 @@ function calculateWeightedScore(biz: any, site: any, niche: string): any {
 
 export async function POST(req: Request) {
   try {
-    const { niche, location, prompt } = await req.json();
+    const { niche, location, prompt, limit } = await req.json();
     if (!process.env.APIFY_API_TOKEN) return NextResponse.json({ error: 'Apify token missing.' }, { status: 500 });
 
     const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
     const searchQuery = prompt || `${niche} in ${location}`;
+    const maxPlaces = Math.max(1, Math.min(Number(limit) || 5, 50));
 
     const run = await client.actor('compass/crawler-google-places').call({
       searchStringsArray: [searchQuery],
-      maxCrawledPlacesPerSearch: 20,
+      maxCrawledPlacesPerSearch: maxPlaces,
       language: 'en',
       scrapeContacts: true,
-      scrapeWebsite: false,
+      scrapeWebsite: true,
       extractEmailsAndContacts: true,
     });
 
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     const leads = await Promise.all(items.map(async (item: any) => {
-      const website = item.website || item.url || 'N/A';
+      let website = item.website || 'N/A';
+      if (website && (website.includes('google.com') || website.includes('google.co'))) {
+        website = 'N/A';
+      }
       const phone = item.phone || item.phoneUnformatted || 'N/A';
       const rating = item.totalScore || item.rating || 0;
       const reviews = item.reviewsCount || 0;
