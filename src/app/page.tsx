@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Network, Activity } from "lucide-react";
+import { Search, Loader2, Download, CheckCircle2, XCircle, AlertTriangle, Send, Sparkles, Target, Zap, BarChart2, Users, Mail, Globe, Star, Image, Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, Check, Copy, Network, Activity, DollarSign, TrendingUp, Shield, MessageSquare } from "lucide-react";
 
 export default function Home() {
   const [niche, setNiche] = useState("roofing company");
@@ -30,8 +30,25 @@ export default function Home() {
   const [pitchLoading, setPitchLoading] = useState(false);
   const [pitchCopied, setPitchCopied] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [reviewsData, setReviewsData] = useState<any>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const [activePage, setActivePage] = useState("scraper");
+
+  const fetchReviews = async (lead: any) => {
+    if (reviewsData) return;
+    setReviewsLoading(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeUrl: lead.placeUrl, placeName: lead.companyName }),
+      });
+      const data = await res.json();
+      setReviewsData(data);
+    } catch { setReviewsData(null); }
+    setReviewsLoading(false);
+  };
 
   const handleSearch = async () => {
     if (!niche && !location) {
@@ -489,11 +506,12 @@ export default function Home() {
             </div>
             
             <div className="flex-1 overflow-y-auto p-8">
-              <div className="flex gap-2 mb-8 bg-[#16161f] rounded-xl p-1.5 border border-white/5">
-                <button onClick={() => setActiveTab('analysis')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[13px] rounded-lg font-semibold transition-all ${activeTab === 'analysis' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><BarChart2 className="w-4 h-4"/> Overview</button>
-                <button onClick={() => setActiveTab('contacts')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[13px] rounded-lg font-semibold transition-all ${activeTab === 'contacts' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Users className="w-4 h-4"/> Contacts</button>
-                <button onClick={() => { setActiveTab('pitch'); if (!pitchContent) generatePitch(); }} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[13px] rounded-lg font-semibold transition-all ${activeTab === 'pitch' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Mail className="w-4 h-4"/> AI Pitch</button>
-                <button onClick={() => setActiveTab('opportunities')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[13px] rounded-lg font-semibold transition-all ${activeTab === 'opportunities' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Target className="w-4 h-4"/> Action Plan</button>
+              <div className="flex gap-1.5 mb-8 bg-[#16161f] rounded-xl p-1.5 border border-white/5">
+                <button onClick={() => setActiveTab('analysis')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[12px] rounded-lg font-semibold transition-all ${activeTab === 'analysis' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><BarChart2 className="w-3.5 h-3.5"/> Diagnostic</button>
+                <button onClick={() => { setActiveTab('reviews'); fetchReviews(currentLead); }} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[12px] rounded-lg font-semibold transition-all ${activeTab === 'reviews' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Star className="w-3.5 h-3.5"/> Reviews</button>
+                <button onClick={() => setActiveTab('contacts')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[12px] rounded-lg font-semibold transition-all ${activeTab === 'contacts' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Users className="w-3.5 h-3.5"/> Contacts</button>
+                <button onClick={() => { setActiveTab('pitch'); if (!pitchContent) generatePitch(); }} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[12px] rounded-lg font-semibold transition-all ${activeTab === 'pitch' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Mail className="w-3.5 h-3.5"/> AI Pitch</button>
+                <button onClick={() => setActiveTab('opportunities')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 text-[12px] rounded-lg font-semibold transition-all ${activeTab === 'opportunities' ? 'bg-[#111118] text-white shadow-md border border-white/5' : 'text-[#8888a0] hover:text-white'}`}><Target className="w-3.5 h-3.5"/> Plan</button>
               </div>
 
               {/* TAB CONTENT: CONTACTS */}
@@ -564,89 +582,118 @@ export default function Home() {
                 </div>
               )}
 
-              {/* TAB CONTENT: ANALYSIS — REAL WEBSITE AUDIT */}
-              {activeTab === 'analysis' && (() => {
-                const sa = currentLead.siteAnalysis || {};
-                const seoScore = sa.seoScore || 0;
-                const siteScore = sa.siteScore || 0;
-                return (
+              {/* REVIEWS TAB */}
+              {activeTab === 'reviews' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {/* TOP SCORE BAR */}
-                  <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 mb-5 flex items-center justify-between">
+                  {reviewsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-[#8888a0]">
+                      <Loader2 className="w-8 h-8 animate-spin mb-3 text-[#4f6ef7]"/>
+                      <p className="text-[14px] font-semibold">Fetching reviews from Google Maps...</p>
+                    </div>
+                  ) : reviewsData?.stats ? (
                     <div>
-                      <div className="text-[12px] uppercase tracking-wider text-[#5a5a72] font-bold mb-1">Overall Site Score</div>
-                      <div className="text-[28px] font-bold text-white tracking-tight">{siteScore}<span className="text-[16px] text-[#5a5a72]">/100</span></div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">Platform</div>
-                        <div className="text-[14px] font-bold text-white mt-0.5">{sa.cms || 'Unknown'}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">Load Time</div>
-                        <div className={`text-[14px] font-bold mt-0.5 ${(sa.loadTime || 0) < 3000 ? 'text-[#22c55e]' : (sa.loadTime || 0) < 5000 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{sa.loadTime ? `${(sa.loadTime / 1000).toFixed(1)}s` : 'N/A'}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">SSL</div>
-                        <div className={`text-[14px] font-bold mt-0.5 ${sa.ssl ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.ssl ? 'Secure' : 'None'}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-5">
-                    {/* WEB PRESENCE */}
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Globe className="w-4 h-4"/> Web Presence</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Domain</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${sa.exists ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.exists ? <><CheckCircle2 className="w-3.5 h-3.5"/> Active</> : <><XCircle className="w-3.5 h-3.5"/> Missing</>}</span></div>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">CMS / Platform</span><span className={`text-[13px] font-bold ${sa.cms === 'Wix' || sa.cms === 'GoDaddy' ? 'text-[#f59e0b]' : 'text-white'}`}>{sa.cms || 'N/A'}</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Frameworks</span><span className="text-[13px] font-bold text-white">{sa.frameworks?.length > 0 ? sa.frameworks.join(', ') : 'None detected'}</span></div>
-                    </div>
-                    {/* REPUTATION */}
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Star className="w-4 h-4"/> Reputation</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Google Rating</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.rating >= 4.0 ? 'text-[#f59e0b]' : currentLead.rating > 0 ? 'text-[#ef4444]' : 'text-[#5a5a72]'}`}><Star className={`w-3.5 h-3.5 ${currentLead.rating >= 4.0 ? 'fill-current' : ''}`}/> {currentLead.rating > 0 ? `${currentLead.rating} stars` : 'N/A'}</span></div>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Reviews</span><span className={`text-[13px] font-bold ${currentLead.reviews > 30 ? 'text-[#22c55e]' : currentLead.reviews > 10 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{currentLead.reviews} reviews</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">SEO Title</span><span className="text-[12px] font-medium text-white max-w-[180px] truncate">{sa.seoTitle || 'Missing'}</span></div>
-                    </div>
-                    {/* SOCIAL SIGNALS */}
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Image className="w-4 h-4"/> Social Presence</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Facebook</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.social?.fb ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{currentLead.social?.fb ? <><CheckCircle2 className="w-3.5 h-3.5"/> Found</> : <><XCircle className="w-3.5 h-3.5"/> Not Found</>}</span></div>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Instagram</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${currentLead.social?.insta ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{currentLead.social?.insta ? <><CheckCircle2 className="w-3.5 h-3.5"/> Found</> : <><XCircle className="w-3.5 h-3.5"/> Not Found</>}</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">Google Maps</span><span className="text-[13px] font-bold text-[#22c55e] flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Listed</span></div>
-                    </div>
-                    {/* MARKETING TECH */}
-                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 shadow-sm">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-4 font-bold flex items-center gap-2"><Zap className="w-4 h-4"/> Marketing Stack</h4>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Analytics</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${sa.analytics?.length > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.analytics?.length > 0 ? <><CheckCircle2 className="w-3.5 h-3.5"/> {sa.analytics.join(', ')}</> : <><XCircle className="w-3.5 h-3.5"/> None</>}</span></div>
-                      <div className="flex justify-between items-center py-2 border-b border-white/5"><span className="text-[13px] text-[#8888a0] font-medium">Ad Pixels</span><span className={`text-[13px] font-bold flex items-center gap-1.5 ${sa.pixels?.length > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.pixels?.length > 0 ? <><CheckCircle2 className="w-3.5 h-3.5"/> {sa.pixels.join(', ')}</> : <><XCircle className="w-3.5 h-3.5"/> None</>}</span></div>
-                      <div className="flex justify-between items-center py-2"><span className="text-[13px] text-[#8888a0] font-medium">SEO Score</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-[#09090f] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${seoScore}%`, background: seoScore >= 60 ? '#22c55e' : seoScore >= 40 ? '#f59e0b' : '#ef4444' }}></div></div>
-                          <span className={`text-[13px] font-bold ${seoScore >= 60 ? 'text-[#22c55e]' : seoScore >= 40 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>{seoScore}/100</span>
+                      <div className="flex gap-4 mb-5">
+                        <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex-1 text-center">
+                          <div className="text-[36px] font-bold text-white">{reviewsData.stats.average}</div>
+                          <div className="flex justify-center gap-0.5 mt-1 mb-2">{[1,2,3,4,5].map((s: number) => <Star key={s} className={`w-4 h-4 ${s <= Math.round(reviewsData.stats.average) ? 'text-[#f59e0b] fill-[#f59e0b]' : 'text-[#5a5a72]'}`}/>)}</div>
+                          <div className="text-[12px] text-[#8888a0]">{reviewsData.stats.total} reviews</div>
+                        </div>
+                        <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex-[2]">
+                          <h4 className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold mb-3">Rating Distribution</h4>
+                          {[5,4,3,2,1].map((star: number) => {
+                            const count = reviewsData.stats.distribution[star-1] || 0;
+                            const pct = reviewsData.stats.total ? Math.round((count / reviewsData.stats.total) * 100) : 0;
+                            return (<div key={star} className="flex items-center gap-2 mb-1.5"><span className="text-[12px] text-[#8888a0] w-4 font-bold">{star}</span><Star className="w-3 h-3 text-[#f59e0b] fill-[#f59e0b]"/><div className="flex-1 h-2 bg-[#09090f] rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: star >= 4 ? '#22c55e' : star === 3 ? '#f59e0b' : '#ef4444' }}></div></div><span className="text-[11px] text-[#8888a0] w-8 text-right font-medium">{count}</span></div>);
+                          })}
                         </div>
                       </div>
+                      <div className="grid grid-cols-3 gap-3 mb-5">
+                        <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-xl p-4 text-center"><div className="text-[20px] font-bold text-[#22c55e]">{reviewsData.stats.positive}</div><div className="text-[11px] text-[#8888a0] font-semibold mt-1">Positive</div></div>
+                        <div className="bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl p-4 text-center"><div className="text-[20px] font-bold text-[#f59e0b]">{reviewsData.stats.neutral}</div><div className="text-[11px] text-[#8888a0] font-semibold mt-1">Neutral</div></div>
+                        <div className="bg-[#ef4444]/10 border border-[#ef4444]/20 rounded-xl p-4 text-center"><div className="text-[20px] font-bold text-[#ef4444]">{reviewsData.stats.negative}</div><div className="text-[11px] text-[#8888a0] font-semibold mt-1">Negative</div></div>
+                      </div>
+                      <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 mb-5">
+                        <div className="flex justify-between mb-3"><h4 className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold">Owner Response Rate</h4><span className={`text-[13px] font-bold ${reviewsData.stats.responseRate > 50 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{reviewsData.stats.responseRate}%</span></div>
+                        <div className="h-2 bg-[#09090f] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${reviewsData.stats.responseRate}%`, background: reviewsData.stats.responseRate > 50 ? '#22c55e' : '#ef4444' }}></div></div>
+                      </div>
+                      {reviewsData.reviews?.length > 0 && (<div className="space-y-3 max-h-[250px] overflow-y-auto">{reviewsData.reviews.slice(0, 10).map((r: any, i: number) => (<div key={i} className="bg-[#16161f] border border-white/5 rounded-xl p-4"><div className="flex items-center justify-between mb-2"><span className="text-[13px] font-semibold text-white">{r.author}</span><div className="flex gap-0.5">{[1,2,3,4,5].map((s: number) => <Star key={s} className={`w-3 h-3 ${s <= r.rating ? 'text-[#f59e0b] fill-[#f59e0b]' : 'text-[#5a5a72]'}`}/>)}</div></div>{r.text && <p className="text-[12px] text-[#8888a0] leading-relaxed line-clamp-3">{r.text}</p>}</div>))}</div>)}
+                    </div>
+                  ) : (<div className="text-center py-16 text-[#8888a0]"><Star className="w-10 h-10 mx-auto mb-3 text-[#5a5a72]"/><p className="text-[14px] font-semibold">Click to load reviews</p></div>)}
+                </div>
+              )}
+
+              {/* DIAGNOSTIC TAB */}
+              {activeTab === 'analysis' && (() => {
+                const sa = currentLead.siteAnalysis || {};
+                const sc = currentLead.scoring || {};
+                const bd = sc.breakdown || {};
+                const rev = sc.revenue || {};
+                return (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* SCORE + REVENUE HEADER */}
+                  <div className="flex gap-4 mb-5">
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex-1">
+                      <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold mb-2">Opportunity Score</div>
+                      <div className="text-[36px] font-bold tracking-tight" style={{ color: sc.color || '#f59e0b' }}>{currentLead.score}<span className="text-[16px] text-[#5a5a72]">/99</span></div>
+                      <div className="text-[12px] font-bold mt-1" style={{ color: sc.color }}>{sc.classification || 'WARM'}</div>
+                    </div>
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex-1">
+                      <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold mb-2">Est. Revenue Loss</div>
+                      <div className="text-[28px] font-bold text-[#ef4444] tracking-tight">${(rev.estimatedMonthlyLoss || 0).toLocaleString()}<span className="text-[14px] text-[#5a5a72]">/mo</span></div>
+                      <div className="text-[12px] text-[#8888a0] mt-1">~{rev.lostLeadsPerMonth || 0} leads lost monthly</div>
+                    </div>
+                    <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 flex-1">
+                      <div className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold mb-2">Deal Value</div>
+                      <div className="text-[16px] font-bold text-[#22c55e] tracking-tight mt-2">{rev.estimatedDealValue || 'N/A'}</div>
+                      <div className="text-[12px] text-[#8888a0] mt-1">Best pitch: {rev.topService || 'Web Design'}</div>
                     </div>
                   </div>
 
-                  {/* OPPORTUNITIES DETECTED */}
-                  {sa.opportunities && sa.opportunities.length > 0 && (
+                  {/* 8-CATEGORY BREAKDOWN */}
+                  <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 mb-5">
+                    <h4 className="text-[11px] uppercase tracking-wider text-[#5a5a72] font-bold mb-4">Weighted Scoring Breakdown</h4>
+                    <div className="space-y-3">
+                      {Object.values(bd).map((cat: any, i: number) => {
+                        const clr = cat.score >= 70 ? '#ef4444' : cat.score >= 40 ? '#f59e0b' : '#22c55e';
+                        return (<div key={i} className="flex items-center gap-3"><span className="text-[12px] text-[#8888a0] font-medium w-[140px] shrink-0">{cat.label}</span><div className="flex-1 h-2 bg-[#09090f] rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.score}%`, background: clr }}></div></div><span className="text-[12px] font-bold w-10 text-right" style={{ color: clr }}>{cat.score}%</span><span className="text-[10px] text-[#5a5a72] w-6">×{cat.weight}</span></div>);
+                      })}
+                    </div>
+                  </div>
+                  {/* TECH ROW */}
+                  <div className="grid grid-cols-4 gap-3 mb-5">
+                    <div className="bg-[#16161f] border border-white/5 rounded-xl p-3 text-center"><div className="text-[10px] uppercase text-[#5a5a72] font-bold mb-1">Platform</div><div className="text-[13px] font-bold text-white">{sa.cms || 'N/A'}</div></div>
+                    <div className="bg-[#16161f] border border-white/5 rounded-xl p-3 text-center"><div className="text-[10px] uppercase text-[#5a5a72] font-bold mb-1">Speed</div><div className={`text-[13px] font-bold ${(sa.loadTime||0) < 3000 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.loadTime ? `${(sa.loadTime/1000).toFixed(1)}s` : 'N/A'}</div></div>
+                    <div className="bg-[#16161f] border border-white/5 rounded-xl p-3 text-center"><div className="text-[10px] uppercase text-[#5a5a72] font-bold mb-1">SSL</div><div className={`text-[13px] font-bold ${sa.ssl ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.ssl ? 'Secure' : 'None'}</div></div>
+                    <div className="bg-[#16161f] border border-white/5 rounded-xl p-3 text-center"><div className="text-[10px] uppercase text-[#5a5a72] font-bold mb-1">SEO</div><div className={`text-[13px] font-bold ${(sa.seoScore||0) >= 60 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{sa.seoScore || 0}/100</div></div>
+                  </div>
+                  {/* QUICK CHECKS */}
+                  <div className="grid grid-cols-2 gap-3 mb-5">
+                    {[
+                      { label: 'Analytics', ok: sa.analytics?.length > 0, val: sa.analytics?.join(', ') || 'None' },
+                      { label: 'Ad Pixels', ok: sa.pixels?.length > 0, val: sa.pixels?.join(', ') || 'None' },
+                      { label: 'Lead Forms', ok: sa.conversion?.hasForm, val: sa.conversion?.hasForm ? 'Detected' : 'Missing' },
+                      { label: 'Live Chat', ok: sa.conversion?.hasChat || sa.conversion?.hasWhatsapp, val: sa.conversion?.hasChat ? 'Active' : sa.conversion?.hasWhatsapp ? 'WhatsApp' : 'None' },
+                      { label: 'Booking', ok: sa.conversion?.hasBooking, val: sa.conversion?.hasBooking ? 'Active' : 'None' },
+                      { label: 'Testimonials', ok: sa.conversion?.hasTestimonials, val: sa.conversion?.hasTestimonials ? 'Found' : 'Missing' },
+                      { label: 'Blog', ok: sa.seo?.hasBlog, val: sa.seo?.hasBlog ? 'Active' : 'None' },
+                      { label: 'AI Ready (AEO)', ok: (sa.aeo?.score || 0) >= 40, val: `${sa.aeo?.score || 0}/100` },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center justify-between bg-[#16161f] border border-white/5 rounded-xl px-4 py-2.5"><span className="text-[12px] text-[#8888a0] font-medium">{item.label}</span><span className={`text-[12px] font-bold flex items-center gap-1.5 ${item.ok ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{item.ok ? <CheckCircle2 className="w-3 h-3"/> : <XCircle className="w-3 h-3"/>} {item.val}</span></div>
+                    ))}
+                  </div>
+                  {/* VULNERABILITIES */}
+                  {sa.opportunities?.length > 0 && (
                     <div className="bg-[#16161f] border border-white/5 rounded-[16px] p-5 mb-5">
-                      <h4 className="text-[12px] uppercase tracking-wider text-[#5a5a72] mb-3 font-bold flex items-center gap-2"><Target className="w-4 h-4"/> Vulnerabilities Detected</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {sa.opportunities.map((opp: string, i: number) => (
-                          <span key={i} className="bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5"><AlertTriangle className="w-3 h-3"/> {opp}</span>
-                        ))}
-                      </div>
+                      <h4 className="text-[11px] uppercase tracking-wider text-[#5a5a72] mb-3 font-bold">Vulnerabilities</h4>
+                      <div className="flex flex-wrap gap-2">{sa.opportunities.map((opp: string, i: number) => (<span key={i} className="bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5"><AlertTriangle className="w-3 h-3"/> {opp}</span>))}</div>
                     </div>
                   )}
-
-                  {/* AI DIAGNOSTIC */}
-                  <div className="bg-gradient-to-r from-[#4f6ef7]/10 to-transparent border-l-4 border-[#4f6ef7] rounded-r-xl p-5 text-[14px] text-[#8888a0] leading-relaxed flex gap-4">
+                  {/* AI STRATEGIC ANALYSIS */}
+                  <div className="bg-gradient-to-r from-[#4f6ef7]/10 to-transparent border-l-4 border-[#4f6ef7] rounded-r-xl p-5 text-[13px] text-[#8888a0] leading-relaxed flex gap-4">
                     <Sparkles className="w-6 h-6 text-[#4f6ef7] shrink-0"/>
                     <div>
-                      <strong className="text-white block mb-1">AI Diagnostic Report</strong> 
-                      {currentLead.companyName} {sa.exists ? `runs on ${sa.cms || 'an unidentified platform'}${sa.loadTime ? ` with a ${(sa.loadTime / 1000).toFixed(1)}s load time` : ''}.` : 'has no website — their biggest growth blocker.'} {currentLead.rating > 0 && currentLead.rating < 4.0 && <span className="text-white">Their {currentLead.rating}-star rating is causing local search ranking penalties. </span>} {seoScore < 40 && sa.exists && <span className="text-white">SEO score of {seoScore}/100 means they are virtually invisible in organic search. </span>} {sa.pixels?.length === 0 && sa.exists && <span className="text-white">No tracking pixels means they cannot run retargeting campaigns. </span>} Algorithm designates this as a <strong className={currentLead.score >= 70 ? 'text-[#22c55e]' : 'text-[#f59e0b]'}>{currentLead.score >= 70 ? 'High-Priority' : 'Moderate-Priority'} target</strong> for {service} solutions.
+                      <strong className="text-white block mb-1">AI Strategic Analysis</strong>
+                      {currentLead.companyName} {sa.exists ? `uses ${sa.cms || 'unknown CMS'}` : 'has no website'}. Estimated <strong className="text-[#ef4444]">${(rev.estimatedMonthlyLoss || 0).toLocaleString()}/mo</strong> revenue leakage from {rev.lostLeadsPerMonth || 0} lost leads. Best service to pitch: <strong className="text-white">{rev.topService || 'Web Design'}</strong>. Classification: <strong style={{ color: sc.color }}>{sc.classification}</strong>.
                     </div>
                   </div>
                 </div>
