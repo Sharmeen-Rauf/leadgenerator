@@ -3,7 +3,7 @@
 @theme {
   --font-sans: var(--font-sans), ui-sans-serif, system-ui;
   --font-mono: var(--font-mono), ui-monospace, SFMono-Regular;
-  --font-syne: var(--font-syne), sans-serif;
+  --font-syne: var(--font-sans), sans-serif;
   --color-cyan-tactical: #00D4FF;
   --color-green-tactical: #39FF14;
   --color-navy-base: #0A0E1A;
@@ -24,8 +24,8 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-syne);
+h1, h2, h3, h4, h5, h6, .font-\['Syne'\] {
+  font-family: var(--font-sans) !important;
 }
 
 /* --- ANIMATED AURORA GRADIENT MESH BACKGROUND --- */
