@@ -28,13 +28,16 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={onClose}
     >
       <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
         className={`bg-[#080C18]/95 border-2 border-[#00D4FF]/25 rounded-md w-full ${maxWidth} h-[85vh] flex flex-col overflow-hidden shadow-[0_0_50px_rgba(0,212,255,0.2)] animate-in scale-in-95 duration-200`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-[#00D4FF]/15 flex items-center justify-between bg-[#080C18]/80 select-none shrink-0">
           <div>
-            <h3 className="text-base font-extrabold text-white font-['Syne'] uppercase tracking-wider">{title}</h3>
+            <h3 id="modal-title" className="text-base font-extrabold text-white font-['Syne'] uppercase tracking-wider">{title}</h3>
             {subtitle && (
               <p className="text-[10px] text-neutral-500 font-mono mt-1 tracking-wider uppercase">{subtitle}</p>
             )}

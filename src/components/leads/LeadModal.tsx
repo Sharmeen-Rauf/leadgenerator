@@ -48,9 +48,35 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
   // Speed, SSL, SEO Audit stats
   const auditScores = [
-    { label: 'Site Speed', value: lead.site_speed || 'N/A', color: lead.site_speed?.includes('Slow') || lead.site_speed?.includes('F') ? 'text-[#FF3366]' : 'text-[#39FF14]' },
-    { label: 'SSL Status', value: lead.ssl_status || 'N/A', color: lead.ssl_status?.toLowerCase().includes('valid') || lead.ssl_status?.toLowerCase().includes('active') ? 'text-[#39FF14]' : 'text-[#FF3366]' },
-    { label: 'SEO Score', value: lead.seo_score ? `${lead.seo_score}/100` : 'N/A', color: (lead.seo_score || 0) >= 80 ? 'text-[#39FF14]' : (lead.seo_score || 0) >= 50 ? 'text-[#FFB800]' : 'text-[#FF3366]' }
+    { 
+      label: 'Site Speed', 
+      value: lead.site_speed || 'N/A', 
+      color: !lead.site_speed || lead.site_speed === 'N/A' 
+        ? 'text-neutral-500' 
+        : (lead.site_speed.toLowerCase().includes('slow') || lead.site_speed.toLowerCase().includes('fail') 
+          ? 'text-[#FF3366]' 
+          : 'text-[#39FF14]') 
+    },
+    { 
+      label: 'SSL Status', 
+      value: lead.ssl_status || 'N/A', 
+      color: !lead.ssl_status || lead.ssl_status === 'N/A' 
+        ? 'text-neutral-500' 
+        : (lead.ssl_status.toLowerCase().includes('invalid') || lead.ssl_status.toLowerCase().includes('expired') || lead.ssl_status.toLowerCase().includes('none')
+          ? 'text-[#FF3366]' 
+          : 'text-[#39FF14]') 
+    },
+    { 
+      label: 'SEO Score', 
+      value: lead.seo_score ? `${lead.seo_score}/100` : 'N/A', 
+      color: !lead.seo_score 
+        ? 'text-neutral-500' 
+        : ((lead.seo_score || 0) >= 80 
+          ? 'text-[#39FF14]' 
+          : (lead.seo_score || 0) >= 50 
+            ? 'text-[#FFB800]' 
+            : 'text-[#FF3366]') 
+    }
   ];
 
   return (
