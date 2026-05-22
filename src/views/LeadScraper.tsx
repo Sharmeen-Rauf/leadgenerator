@@ -86,7 +86,13 @@ export const LeadScraper: React.FC<LeadScraperProps> = ({
         seo_score: Number(item.siteAnalysis?.seoScore) || 0,
         vulnerabilities: item.siteAnalysis?.opportunities || [],
         crm_status: 'new' as const,
-        notes: (item.siteAnalysis?.opportunities || []).join('\n'),
+        notes: [
+          `Decision Maker: ${item.decisionMaker || 'N/A'}`,
+          `Facebook: ${item.facebookUrl || 'N/A'}`,
+          `Instagram: ${item.instagramUrl || 'N/A'}`,
+          `Google Maps: ${item.placeUrl || 'N/A'}`,
+          ...(item.siteAnalysis?.opportunities || [])
+        ].join('\n'),
         source_query: item.source_query || '',
         service_pitched: item.scoring?.revenue?.topService || 'N/A'
       }));

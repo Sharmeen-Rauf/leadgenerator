@@ -42,7 +42,8 @@ function CommandCenter() {
     updateLeadStatus, 
     updateLeadNotes,
     fetchLeads,
-    logOutreach
+    logOutreach,
+    enrichLead
   } = useLeads();
 
   const { 
@@ -142,13 +143,14 @@ function CommandCenter() {
       
       {/* 1. Unified Lead Diagnostic + AI Pitch Modal */}
       <LeadModal
-        lead={selectedLead}
+        lead={selectedLead ? leads.find(l => l.id === selectedLead.id) || selectedLead : null}
         isOpen={!!selectedLead}
         onClose={() => setSelectedLead(null)}
         onSaveNotes={updateLeadNotes}
         outreachLogs={outreachLogs}
         onLogOutreach={logOutreach}
         updateLeadStatus={updateLeadStatus}
+        onEnrich={enrichLead}
       />
 
       {/* 2. Outreach Action Logger Modal */}

@@ -5,6 +5,58 @@ import {
   Sparkles, Copy, Check, Send, BarChart2, Users, MessageSquare,
   Target, Zap, TrendingUp, Eye, RefreshCw, Rocket, X
 } from 'lucide-react';
+
+const Facebook = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    width="24"
+    height="24"
+    stroke="currentColor"
+    strokeWidth="2"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+
+const Instagram = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    width="24"
+    height="24"
+    stroke="currentColor"
+    strokeWidth="2"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+
+const Linkedin = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    width="24"
+    height="24"
+    stroke="currentColor"
+    strokeWidth="2"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+    <rect x="2" y="9" width="4" height="12" />
+    <circle cx="4" cy="4" r="2" />
+  </svg>
+);
 import { Lead } from '../../hooks/useLeads';
 import { useToast } from '../ui/Toast';
 
@@ -21,6 +73,7 @@ interface LeadModalProps {
     outcome: 'no_reply' | 'interested' | 'rejected' | 'booked'
   ) => Promise<void>;
   updateLeadStatus: (leadId: string, status: Lead['crm_status']) => void;
+  onEnrich?: (leadId: string) => Promise<void>;
 }
 
 // ---- HELPER: Derive weighted scoring breakdown from Lead data ----
@@ -151,6 +204,75 @@ function computeVulnerabilities(lead: Lead): { text: string; severity: 'critical
   return vulns.slice(0, 6);
 }
 
+// ---- HELPER: Parse decision maker & social media metadata from notes ----
+interface ParsedNotes {
+  decisionMaker: string;
+  title: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  placeUrl: string;
+  activeAds: string;
+  extraNotes: string;
+}
+
+function parseLeadNotes(notesStr: string): ParsedNotes {
+  const result: ParsedNotes = {
+    decisionMaker: 'N/A',
+    title: 'Owner / Founder',
+    facebookUrl: 'N/A',
+    instagramUrl: 'N/A',
+    linkedinUrl: 'N/A',
+    placeUrl: 'N/A',
+    activeAds: 'N/A',
+    extraNotes: '',
+  };
+
+  if (!notesStr) return result;
+
+  // Check if it's the old enrichment format: "Enriched contact: Name (Title). LinkedIn: URL. Ads status: ..."
+  if (notesStr.startsWith('Enriched contact:')) {
+    const match = notesStr.match(/Enriched contact:\s*(.*?)\s*\((.*?)\)\.\s*LinkedIn:\s*(.*?)\.\s*Ads status:\s*(.*?)(\.|$)/i);
+    if (match) {
+      result.decisionMaker = match[1]?.trim() || 'N/A';
+      result.title = match[2]?.trim() || 'Owner / Founder';
+      result.linkedinUrl = match[3]?.trim() || 'N/A';
+      result.activeAds = match[4]?.trim() || 'N/A';
+      return result;
+    }
+  }
+
+  // Parse line-by-line
+  const lines = notesStr.split('\n');
+  const remainingLines: string[] = [];
+
+  lines.forEach(line => {
+    const cleanLine = line.trim();
+    if (cleanLine.startsWith('Decision Maker:')) {
+      result.decisionMaker = cleanLine.replace('Decision Maker:', '').trim() || 'N/A';
+    } else if (cleanLine.startsWith('Title:')) {
+      result.title = cleanLine.replace('Title:', '').trim() || 'Owner / Founder';
+    } else if (cleanLine.startsWith('Facebook:')) {
+      result.facebookUrl = cleanLine.replace('Facebook:', '').trim() || 'N/A';
+    } else if (cleanLine.startsWith('Instagram:')) {
+      result.instagramUrl = cleanLine.replace('Instagram:', '').trim() || 'N/A';
+    } else if (cleanLine.startsWith('LinkedIn:')) {
+      result.linkedinUrl = cleanLine.replace('LinkedIn:', '').trim() || 'N/A';
+    } else if (cleanLine.startsWith('Google Maps:')) {
+      result.placeUrl = cleanLine.replace('Google Maps:', '').trim() || 'N/A';
+    } else if (cleanLine.startsWith('Active Ads:')) {
+      result.activeAds = cleanLine.replace('Active Ads:', '').trim() || 'N/A';
+    } else {
+      if (cleanLine) {
+        remainingLines.push(cleanLine);
+      }
+    }
+  });
+
+  result.extraNotes = remainingLines.join('\n');
+  return result;
+}
+
 // ---- TABS ----
 type TabId = 'diagnostic' | 'reviews' | 'contacts' | 'pitch' | 'plan';
 
@@ -172,11 +294,13 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   onSaveNotes,
   outreachLogs,
   onLogOutreach,
-  updateLeadStatus
+  updateLeadStatus,
+  onEnrich
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('diagnostic');
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [barsAnimated, setBarsAnimated] = useState(false);
 
   // Pitch state
@@ -189,7 +313,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
   useEffect(() => {
     if (lead) {
-      setNotes(lead.notes || '');
+      const parsed = parseLeadNotes(lead.notes || '');
+      setNotes(parsed.extraNotes || '');
       setActiveTab('diagnostic');
       setBarsAnimated(false);
       // Trigger bar animation after mount
@@ -201,10 +326,12 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   // Pitch templates
   const templates = useMemo(() => {
     if (!lead) return { seo: { s: '', b: '' }, redesign: { s: '', b: '' }, ads: { s: '', b: '' } };
+    const parsedNotes = parseLeadNotes(lead.notes || '');
+    const cleanNotes = parsedNotes.extraNotes || 'Weak meta markup';
     return {
       seo: {
         s: `Critical SEO Gaps Detected on ${lead.company_name}`,
-        b: `Hi Team at ${lead.company_name},\n\nI was reviewing local businesses in ${lead.location} and ran a technical performance scan on your website.\n\nOur system detected some critical SEO gaps that are likely making you invisible to potential customers in the area:\n- SEO Score: ${lead.seo_score || 35}/100\n- Identified Vulnerabilities: ${lead.notes || 'Weak meta markup'}\n\nWith these errors, Google has difficulty crawling your pages. We specialize in fixing exactly these issues. Would you be open to a quick 5-minute call this Thursday to review our suggestions?\n\nBest regards,\n[Your Name]`
+        b: `Hi Team at ${lead.company_name},\n\nI was reviewing local businesses in ${lead.location} and ran a technical performance scan on your website.\n\nOur system detected some critical SEO gaps that are likely making you invisible to potential customers in the area:\n- SEO Score: ${lead.seo_score || 35}/100\n- Identified Vulnerabilities: ${cleanNotes}\n\nWith these errors, Google has difficulty crawling your pages. We specialize in fixing exactly these issues. Would you be open to a quick 5-minute call this Thursday to review our suggestions?\n\nBest regards,\n[Your Name]`
       },
       redesign: {
         s: `Proposal: Website Speed & SSL Upgrade for ${lead.company_name}`,
@@ -242,7 +369,35 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   // -- Handlers --
   const handleSaveNotes = async () => {
     setSavingNotes(true);
-    try { await onSaveNotes(lead.id, notes); } finally { setSavingNotes(false); }
+    try {
+      const parsed = parseLeadNotes(lead.notes || '');
+      const metadata = [
+        `Decision Maker: ${parsed.decisionMaker}`,
+        `Title: ${parsed.title}`,
+        `Facebook: ${parsed.facebookUrl}`,
+        `Instagram: ${parsed.instagramUrl}`,
+        `LinkedIn: ${parsed.linkedinUrl}`,
+        `Google Maps: ${parsed.placeUrl}`,
+        `Active Ads: ${parsed.activeAds}`
+      ].join('\n');
+      
+      const fullNotes = notes ? `${metadata}\n${notes}` : metadata;
+      await onSaveNotes(lead.id, fullNotes);
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const handleEnrich = async () => {
+    if (!onEnrich || !lead) return;
+    setEnriching(true);
+    try {
+      await onEnrich(lead.id);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setEnriching(false);
+    }
   };
 
   const handleCopy = () => {
@@ -328,7 +483,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
         <div className="flex-1 overflow-y-auto min-h-0">
           {activeTab === 'diagnostic' && <DiagnosticTab lead={lead} scoring={scoring} features={features} vulns={vulns} tempLabel={tempLabel} tempColor={tempColor} bestService={bestService} estLeadsLost={estLeadsLost} dealMin={dealMin} dealMax={dealMax} barsAnimated={barsAnimated} />}
           {activeTab === 'reviews' && <ReviewsTab lead={lead} />}
-          {activeTab === 'contacts' && <ContactsTab lead={lead} />}
+          {activeTab === 'contacts' && <ContactsTab lead={lead} onEnrich={handleEnrich} enriching={enriching} />}
           {activeTab === 'pitch' && <PitchTab lead={lead} template={template} setTemplate={setTemplate} subject={subject} setSubject={setSubject} body={body} setBody={setBody} copied={copied} handleCopy={handleCopy} />}
           {activeTab === 'plan' && <PlanTab lead={lead} notes={notes} setNotes={setNotes} handleSaveNotes={handleSaveNotes} savingNotes={savingNotes} filteredLogs={filteredLogs} />}
         </div>
@@ -601,9 +756,17 @@ function ReviewsTab({ lead }: { lead: Lead }) {
 // ==============================================================
 // TAB 3: CONTACTS
 // ==============================================================
-function ContactsTab({ lead }: { lead: Lead }) {
+interface ContactsTabProps {
+  lead: Lead;
+  onEnrich?: () => Promise<void>;
+  enriching: boolean;
+}
+
+function ContactsTab({ lead, onEnrich, enriching }: ContactsTabProps) {
+  const parsed = parseLeadNotes(lead.notes || '');
+
   const contactFields = [
-    { icon: <Globe className="w-4 h-4 text-[#00D4FF]" />, label: 'Website URL', value: lead.website, link: lead.website && lead.website !== 'N/A' ? lead.website : null },
+    { icon: <Globe className="w-4 h-4 text-[#00D4FF]" />, label: 'Website URL', value: lead.website, link: lead.website && lead.website !== 'N/A' && lead.website !== 'null' ? lead.website : null },
     { icon: <Mail className="w-4 h-4 text-[#00D4FF]" />, label: 'Contact Email', value: lead.email, link: lead.email && lead.email !== 'N/A' ? `mailto:${lead.email}` : null },
     { icon: <Phone className="w-4 h-4 text-[#00D4FF]" />, label: 'Direct Phone', value: lead.phone, link: lead.phone && lead.phone !== 'N/A' ? `tel:${lead.phone}` : null },
     { icon: <MapPin className="w-4 h-4 text-[#00D4FF]" />, label: 'Location', value: lead.location, link: null },
@@ -613,45 +776,222 @@ function ContactsTab({ lead }: { lead: Lead }) {
     { icon: <FileText className="w-4 h-4 text-[#00D4FF]" />, label: 'Source Query', value: lead.source_query || 'Direct Scrape', link: null },
   ];
 
+  const hasDm = parsed.decisionMaker && parsed.decisionMaker !== 'N/A';
+  const hasLinkedin = parsed.linkedinUrl && parsed.linkedinUrl !== 'N/A';
+  const hasFacebook = parsed.facebookUrl && parsed.facebookUrl !== 'N/A';
+  const hasInstagram = parsed.instagramUrl && parsed.instagramUrl !== 'N/A';
+  const hasPlace = parsed.placeUrl && parsed.placeUrl !== 'N/A';
+
   return (
-    <div className="p-6 space-y-5 font-mono text-[11px]">
-      <div className="diag-stat-card">
-        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-4">Contact Information</div>
-        <div className="space-y-3">
-          {contactFields.map((cf, i) => (
-            <div key={i} className="flex items-center gap-3 pb-2.5 border-b border-[#00D4FF]/5 last:border-b-0">
-              {cf.icon}
-              <span className="text-neutral-500 font-semibold w-[130px] shrink-0 uppercase text-[9px] tracking-wider">{cf.label}</span>
-              {cf.link ? (
-                <a href={cf.link} target="_blank" rel="noreferrer" className="text-white hover:text-[#00D4FF] font-bold flex items-center gap-1.5 truncate transition-colors">
-                  {(cf.value || 'N/A').replace(/^https?:\/\//, '')}
-                  <ExternalLink className="w-2.5 h-2.5 shrink-0 text-neutral-600" />
-                </a>
-              ) : (
-                <span className={`font-bold ${cf.value && cf.value !== 'N/A' && cf.value !== 'Never' ? 'text-white' : 'text-neutral-600'}`}>
-                  {cf.value || 'N/A'}
-                </span>
-              )}
-            </div>
-          ))}
+    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 font-mono text-[11px]">
+      {/* LEFT COLUMN: CORE CONTACT DETAILS */}
+      <div className="space-y-4">
+        <div className="diag-stat-card">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-4">Contact Information</div>
+          <div className="space-y-3">
+            {contactFields.map((cf, i) => (
+              <div key={i} className="flex items-center gap-3 pb-2.5 border-b border-[#00D4FF]/5 last:border-b-0">
+                {cf.icon}
+                <span className="text-neutral-500 font-semibold w-[130px] shrink-0 uppercase text-[9px] tracking-wider">{cf.label}</span>
+                {cf.link ? (
+                  <a href={cf.link} target="_blank" rel="noreferrer" className="text-white hover:text-[#00D4FF] font-bold flex items-center gap-1.5 truncate transition-colors">
+                    {(cf.value || 'N/A').replace(/^https?:\/\//, '')}
+                    <ExternalLink className="w-2.5 h-2.5 shrink-0 text-neutral-600" />
+                  </a>
+                ) : (
+                  <span className={`font-bold ${cf.value && cf.value !== 'N/A' && cf.value !== 'Never' ? 'text-white' : 'text-neutral-600'}`}>
+                    {cf.value || 'N/A'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CRM Status */}
+        <div className="diag-stat-card">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">CRM Pipeline Status</div>
+          <div className="flex items-center gap-3">
+            <span className={`text-[9px] px-2.5 py-1 rounded font-extrabold uppercase tracking-widest ${
+              lead.crm_status === 'closed_won' ? 'bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30'
+              : lead.crm_status === 'closed_lost' ? 'bg-[#FF3366]/10 text-[#FF3366] border border-[#FF3366]/30'
+              : lead.crm_status === 'contacted' ? 'bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/30'
+              : 'bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/30'
+            }`}>
+              {lead.crm_status.replace('_', ' ')}
+            </span>
+            <span className="text-neutral-500 text-[9px]">
+              Last updated: {new Date(lead.updated_at).toLocaleDateString()}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* CRM Status */}
-      <div className="diag-stat-card">
-        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">CRM Pipeline Status</div>
-        <div className="flex items-center gap-3">
-          <span className={`text-[9px] px-2.5 py-1 rounded font-extrabold uppercase tracking-widest ${
-            lead.crm_status === 'closed_won' ? 'bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30'
-            : lead.crm_status === 'closed_lost' ? 'bg-[#FF3366]/10 text-[#FF3366] border border-[#FF3366]/30'
-            : lead.crm_status === 'contacted' ? 'bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/30'
-            : 'bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/30'
-          }`}>
-            {lead.crm_status.replace('_', ' ')}
-          </span>
-          <span className="text-neutral-500 text-[9px]">
-            Last updated: {new Date(lead.updated_at).toLocaleDateString()}
-          </span>
+      {/* RIGHT COLUMN: DECISION MAKER & SOCIAL GRIDS */}
+      <div className="space-y-4">
+        {/* Decision Maker Card */}
+        <div className="diag-stat-card flex flex-col justify-between min-h-[145px]">
+          <div>
+            <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">Key Decision Maker</div>
+            {hasDm ? (
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/35 flex items-center justify-center text-[#7C3AED] shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-white font-extrabold text-[13px]">{parsed.decisionMaker}</div>
+                  <div className="text-[#00D4FF] text-[9.5px] font-bold mt-0.5">{parsed.title}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-neutral-500 italic text-[10px] py-1">
+                No verified decision maker identified.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-[#00D4FF]/5 flex items-center justify-between gap-3">
+            {hasLinkedin ? (
+              <a 
+                href={parsed.linkedinUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2]/15 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/35 text-[#0A66C2] rounded text-[9px] font-bold uppercase transition-all"
+              >
+                <Linkedin className="w-3.5 h-3.5" /> LinkedIn Profile
+              </a>
+            ) : (
+              <span className="text-neutral-600 text-[9px]">No LinkedIn Profile linked</span>
+            )}
+
+            {onEnrich && (
+              <button
+                onClick={onEnrich}
+                disabled={enriching}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#00D4FF] to-[#7C3AED] hover:shadow-[0_0_12px_rgba(0,212,255,0.3)] text-white disabled:opacity-50 rounded text-[9.5px] font-bold uppercase tracking-wider cursor-pointer transition-all shrink-0 font-mono"
+              >
+                {enriching ? (
+                  <>
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Enriching...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3" /> {hasDm ? 'Re-Enrich Contact' : 'Enrich Contact'}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Social Grid */}
+        <div className="diag-stat-card">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">Linked Accounts & Socials</div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* LinkedIn Account */}
+            {hasLinkedin ? (
+              <a 
+                href={parsed.linkedinUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="flex flex-col p-3 rounded bg-[#0A66C2]/10 border border-[#0A66C2]/20 hover:border-[#0A66C2]/50 hover:shadow-[0_0_10px_rgba(10,102,194,0.15)] transition-all"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                  <span className="text-[7.5px] font-extrabold uppercase px-1.5 py-0.5 bg-[#0A66C2]/20 text-[#0A66C2] rounded">ACTIVE</span>
+                </div>
+                <div className="text-white font-bold text-[10px]">LinkedIn</div>
+                <div className="text-neutral-500 text-[8px] mt-0.5 truncate">{parsed.linkedinUrl.replace(/^https?:\/\/(www\.)?/, '')}</div>
+              </a>
+            ) : (
+              <div className="flex flex-col p-3 rounded bg-neutral-950/40 border border-neutral-900 opacity-40">
+                <div className="flex items-center justify-between mb-2">
+                  <Linkedin className="w-4 h-4 text-neutral-500" />
+                  <span className="text-[7.5px] font-bold uppercase px-1.5 py-0.5 bg-neutral-900 text-neutral-500 rounded">MISSING</span>
+                </div>
+                <div className="text-neutral-400 font-bold text-[10px]">LinkedIn</div>
+                <div className="text-neutral-600 text-[8px] mt-0.5">Not Available</div>
+              </div>
+            )}
+
+            {/* Facebook Account */}
+            {hasFacebook ? (
+              <a 
+                href={parsed.facebookUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="flex flex-col p-3 rounded bg-[#1877F2]/10 border border-[#1877F2]/20 hover:border-[#1877F2]/50 hover:shadow-[0_0_10px_rgba(24,119,242,0.15)] transition-all"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Facebook className="w-4 h-4 text-[#1877F2]" />
+                  <span className="text-[7.5px] font-extrabold uppercase px-1.5 py-0.5 bg-[#1877F2]/20 text-[#1877F2] rounded">ACTIVE</span>
+                </div>
+                <div className="text-white font-bold text-[10px]">Facebook</div>
+                <div className="text-neutral-500 text-[8px] mt-0.5 truncate">{parsed.facebookUrl.replace(/^https?:\/\/(www\.)?/, '')}</div>
+              </a>
+            ) : (
+              <div className="flex flex-col p-3 rounded bg-neutral-950/40 border border-neutral-900 opacity-40">
+                <div className="flex items-center justify-between mb-2">
+                  <Facebook className="w-4 h-4 text-neutral-500" />
+                  <span className="text-[7.5px] font-bold uppercase px-1.5 py-0.5 bg-neutral-900 text-neutral-500 rounded">MISSING</span>
+                </div>
+                <div className="text-neutral-400 font-bold text-[10px]">Facebook</div>
+                <div className="text-neutral-600 text-[8px] mt-0.5">Not Available</div>
+              </div>
+            )}
+
+            {/* Instagram Account */}
+            {hasInstagram ? (
+              <a 
+                href={parsed.instagramUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="flex flex-col p-3 rounded bg-[#E1306C]/10 border border-[#E1306C]/20 hover:border-[#E1306C]/50 hover:shadow-[0_0_10px_rgba(225,48,108,0.15)] transition-all"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Instagram className="w-4 h-4 text-[#E1306C]" />
+                  <span className="text-[7.5px] font-extrabold uppercase px-1.5 py-0.5 bg-[#E1306C]/20 text-[#E1306C] rounded">ACTIVE</span>
+                </div>
+                <div className="text-white font-bold text-[10px]">Instagram</div>
+                <div className="text-neutral-500 text-[8px] mt-0.5 truncate">{parsed.instagramUrl.replace(/^https?:\/\/(www\.)?/, '')}</div>
+              </a>
+            ) : (
+              <div className="flex flex-col p-3 rounded bg-neutral-950/40 border border-neutral-900 opacity-40">
+                <div className="flex items-center justify-between mb-2">
+                  <Instagram className="w-4 h-4 text-neutral-500" />
+                  <span className="text-[7.5px] font-bold uppercase px-1.5 py-0.5 bg-neutral-900 text-neutral-500 rounded">MISSING</span>
+                </div>
+                <div className="text-neutral-400 font-bold text-[10px]">Instagram</div>
+                <div className="text-neutral-600 text-[8px] mt-0.5">Not Available</div>
+              </div>
+            )}
+
+            {/* Google Maps Account */}
+            {hasPlace ? (
+              <a 
+                href={parsed.placeUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="flex flex-col p-3 rounded bg-[#4285F4]/10 border border-[#4285F4]/20 hover:border-[#4285F4]/50 hover:shadow-[0_0_10px_rgba(66,133,244,0.15)] transition-all"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Globe className="w-4 h-4 text-[#EA4335]" />
+                  <span className="text-[7.5px] font-extrabold uppercase px-1.5 py-0.5 bg-[#34A853]/20 text-[#34A853] rounded">ACTIVE</span>
+                </div>
+                <div className="text-white font-bold text-[10px]">Google Maps</div>
+                <div className="text-neutral-500 text-[8px] mt-0.5 truncate">{parsed.placeUrl.replace(/^https?:\/\/(www\.)?/, '')}</div>
+              </a>
+            ) : (
+              <div className="flex flex-col p-3 rounded bg-neutral-950/40 border border-neutral-900 opacity-40">
+                <div className="flex items-center justify-between mb-2">
+                  <Globe className="w-4 h-4 text-neutral-500" />
+                  <span className="text-[7.5px] font-bold uppercase px-1.5 py-0.5 bg-neutral-900 text-neutral-500 rounded">MISSING</span>
+                </div>
+                <div className="text-neutral-400 font-bold text-[10px]">Google Maps</div>
+                <div className="text-neutral-600 text-[8px] mt-0.5">Not Available</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

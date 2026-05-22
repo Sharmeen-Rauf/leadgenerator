@@ -182,11 +182,64 @@ export function useLeads() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Enrichment API failed");
+
+      // Extract and merge fields
+      let decisionMaker = data.decisionMaker && data.decisionMaker !== 'N/A' ? data.decisionMaker : 'N/A';
+      let title = data.title && data.title !== 'Owner / Founder' ? data.title : 'Owner / Founder';
+      let linkedinUrl = data.linkedinUrl && data.linkedinUrl !== 'N/A' ? data.linkedinUrl : 'N/A';
+      let facebookUrl = 'N/A';
+      let instagramUrl = 'N/A';
+      let placeUrl = 'N/A';
+      let otherNotes: string[] = [];
+
+      if (leadToEnrich.notes) {
+        const lines = leadToEnrich.notes.split('\n');
+        lines.forEach(line => {
+          const cleanLine = line.trim();
+          if (cleanLine.startsWith('Facebook:')) {
+            facebookUrl = cleanLine.replace('Facebook:', '').trim();
+          } else if (cleanLine.startsWith('Instagram:')) {
+            instagramUrl = cleanLine.replace('Instagram:', '').trim();
+          } else if (cleanLine.startsWith('Google Maps:')) {
+            placeUrl = cleanLine.replace('Google Maps:', '').trim();
+          } else if (cleanLine.startsWith('Decision Maker:') && decisionMaker === 'N/A') {
+            decisionMaker = cleanLine.replace('Decision Maker:', '').trim();
+          } else if (cleanLine.startsWith('Title:') && title === 'Owner / Founder') {
+            title = cleanLine.replace('Title:', '').trim();
+          } else if (cleanLine.startsWith('LinkedIn:') && linkedinUrl === 'N/A') {
+            linkedinUrl = cleanLine.replace('LinkedIn:', '').trim();
+          } else if (
+            !cleanLine.startsWith('Decision Maker:') &&
+            !cleanLine.startsWith('Title:') &&
+            !cleanLine.startsWith('Facebook:') &&
+            !cleanLine.startsWith('Instagram:') &&
+            !cleanLine.startsWith('LinkedIn:') &&
+            !cleanLine.startsWith('Google Maps:') &&
+            !cleanLine.startsWith('Active Ads:') &&
+            !cleanLine.startsWith('Enriched contact:')
+          ) {
+            if (cleanLine) {
+              otherNotes.push(cleanLine);
+            }
+          }
+        });
+      }
+
+      const notesLines = [
+        `Decision Maker: ${decisionMaker}`,
+        `Title: ${title}`,
+        `Facebook: ${facebookUrl}`,
+        `Instagram: ${instagramUrl}`,
+        `LinkedIn: ${linkedinUrl}`,
+        `Google Maps: ${placeUrl}`,
+        `Active Ads: ${data.hasActiveAds ? `Active (${data.adCount || 0} ads)` : 'No Ads'}`,
+        ...otherNotes
+      ];
       
       const updateData = {
-        email: data.directEmail !== 'N/A' ? data.directEmail : leadToEnrich.email,
-        phone: data.phone !== 'N/A' ? data.phone : leadToEnrich.phone,
-        notes: `Enriched contact: ${data.decisionMaker || 'Owner'} (${data.title || 'Founder'}). LinkedIn: ${data.linkedinUrl || 'N/A'}. Ads status: ${data.hasActiveAds ? 'Active Ads' : 'No Ads'}.`,
+        email: data.directEmail && data.directEmail !== 'N/A' ? data.directEmail : leadToEnrich.email,
+        phone: data.phone && data.phone !== 'N/A' ? data.phone : leadToEnrich.phone,
+        notes: notesLines.join('\n'),
         updated_at: new Date().toISOString()
       };
 
