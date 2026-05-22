@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Sparkles, MapPin, MessageSquare } from 'lucide-react';
+import { Star, Eye, MapPin, MessageSquare } from 'lucide-react';
 import { Lead } from '../../hooks/useLeads';
 import { Badge } from '../ui/Badge';
 
@@ -152,10 +152,10 @@ export const LeadRow: React.FC<LeadRowProps> = ({
         </select>
 
         <button
-          onClick={() => onOpenPitch(lead)}
+          onClick={() => onSelect(lead)}
           className="shimmer-btn bg-neutral-900 border border-[#00D4FF]/25 hover:bg-[#00D4FF] hover:text-[#080C18] text-[#00D4FF] px-2.5 py-1 rounded text-[10px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
         >
-          <Sparkles className="w-3 h-3 fill-current" /> Pitch
+          <Eye className="w-3 h-3" /> Analyze
         </button>
 
         <button

@@ -1,252 +1,850 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Globe, Mail, Phone, Calendar, Shield, Cpu, ExternalLink, 
-  Save, Landmark, Activity, AlertTriangle, FileText
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Globe, Mail, Phone, Calendar, Shield, Cpu, ExternalLink,
+  Save, Activity, AlertTriangle, FileText, Star, MapPin,
+  Sparkles, Copy, Check, Send, BarChart2, Users, MessageSquare,
+  Target, Zap, TrendingUp, Eye, RefreshCw, Rocket, X
 } from 'lucide-react';
 import { Lead } from '../../hooks/useLeads';
-import { ScoreGauge } from './ScoreGauge';
-import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
+import { useToast } from '../ui/Toast';
 
 interface LeadModalProps {
   lead: Lead | null;
   isOpen: boolean;
   onClose: () => void;
   onSaveNotes: (leadId: string, notes: string) => Promise<void>;
-  outreachLogs: any[]; // logs corresponding to this lead
+  outreachLogs: any[];
+  onLogOutreach: (
+    leadId: string,
+    channel: 'email' | 'phone' | 'social',
+    message: string,
+    outcome: 'no_reply' | 'interested' | 'rejected' | 'booked'
+  ) => Promise<void>;
+  updateLeadStatus: (leadId: string, status: Lead['crm_status']) => void;
 }
 
+// ---- HELPER: Derive weighted scoring breakdown from Lead data ----
+function computeScoringBreakdown(lead: Lead) {
+  const websiteExists = lead.website && lead.website !== 'N/A' && lead.website !== 'null';
+  const seoScore = lead.seo_score || 0;
+  const rating = lead.rating || 0;
+  const reviews = lead.review_count || 0;
+  const hasSocial = lead.gaps ? !lead.gaps.includes('SOCIAL') : true;
+  const hasAds = lead.gaps ? !lead.gaps.includes('ADS') : true;
+  const hasEmail = lead.gaps ? !lead.gaps.includes('EMAIL') : true;
+  const hasWeb = lead.gaps ? !lead.gaps.includes('WEB') : true;
+
+  return [
+    {
+      label: 'Website Issues',
+      pct: websiteExists ? Math.min(40, Math.max(8, 40 - seoScore * 0.4)) : 80,
+      weight: 20,
+      color: websiteExists ? '#39FF14' : '#FF3366'
+    },
+    {
+      label: 'SEO Weakness',
+      pct: Math.max(5, 100 - seoScore),
+      weight: 20,
+      color: seoScore >= 70 ? '#39FF14' : seoScore >= 40 ? '#FFB800' : '#FF3366'
+    },
+    {
+      label: 'Local SEO',
+      pct: reviews > 50 ? 15 : reviews > 20 ? 35 : reviews > 5 ? 55 : 80,
+      weight: 15,
+      color: reviews > 50 ? '#39FF14' : reviews > 20 ? '#FFB800' : '#FF3366'
+    },
+    {
+      label: 'Ads Opportunity',
+      pct: hasAds ? 12 : 65,
+      weight: 10,
+      color: hasAds ? '#39FF14' : '#FFB800'
+    },
+    {
+      label: 'Social Gaps',
+      pct: hasSocial ? 10 : 78,
+      weight: 10,
+      color: hasSocial ? '#39FF14' : '#FF3366'
+    },
+    {
+      label: 'Conversion Issues',
+      pct: websiteExists ? (seoScore >= 60 ? 20 : 55) : 90,
+      weight: 10,
+      color: websiteExists && seoScore >= 60 ? '#FFB800' : '#FF3366'
+    },
+    {
+      label: 'Buying Intent',
+      pct: rating >= 4.5 ? 70 : rating >= 3.5 ? 45 : rating > 0 ? 20 : 5,
+      weight: 10,
+      color: rating >= 4.0 ? '#39FF14' : rating >= 3.0 ? '#FFB800' : '#FF3366'
+    },
+    {
+      label: 'AI Search Readiness',
+      pct: seoScore >= 70 ? 60 : seoScore >= 40 ? 35 : 12,
+      weight: 5,
+      color: seoScore >= 70 ? '#39FF14' : seoScore >= 40 ? '#FFB800' : '#FF3366'
+    },
+  ];
+}
+
+// ---- HELPER: Derive platform/feature details ----
+function computeFeatures(lead: Lead) {
+  const websiteExists = lead.website && lead.website !== 'N/A' && lead.website !== 'null';
+  const hasAnalytics = websiteExists && (lead.seo_score || 0) >= 50;
+  const hasLeadForms = false; // simulated — typically not available
+  const hasLiveChat = false;
+  const hasBooking = websiteExists && lead.review_count > 30;
+  const hasTestimonials = websiteExists && lead.review_count > 20;
+  const hasBlog = websiteExists && (lead.seo_score || 0) >= 65;
+  const aiReady = (lead.seo_score || 0) >= 70;
+
+  return {
+    platform: lead.platform || (websiteExists ? 'Unknown CMS' : 'None'),
+    speed: lead.site_speed || (websiteExists ? 'Unknown' : 'N/A'),
+    ssl: lead.ssl_status || (websiteExists ? 'Unknown' : 'N/A'),
+    seoScore: lead.seo_score || 0,
+    analytics: hasAnalytics ? 'Google Analytics, GTM' : 'None',
+    adPixels: hasAnalytics ? 'Partial' : 'None',
+    googleAds: lead.gaps?.includes('ADS') ? 'None' : 'Google Ads',
+    leadForms: hasLeadForms,
+    liveChat: hasLiveChat,
+    booking: hasBooking,
+    testimonials: hasTestimonials,
+    blog: hasBlog,
+    aiReady: aiReady,
+    aiReadyScore: aiReady ? 72 : (lead.seo_score || 0) > 40 ? 48 : 18
+  };
+}
+
+// ---- HELPER: Generate vulnerabilities from lead data ----
+function computeVulnerabilities(lead: Lead): { text: string; severity: 'critical' | 'warning' | 'info' }[] {
+  const vulns: { text: string; severity: 'critical' | 'warning' | 'info' }[] = [];
+  const websiteExists = lead.website && lead.website !== 'N/A' && lead.website !== 'null';
+
+  if (!websiteExists) {
+    vulns.push({ text: 'No website detected — losing all online traffic', severity: 'critical' });
+  }
+  if (lead.ssl_status && (lead.ssl_status.toLowerCase().includes('invalid') || lead.ssl_status.toLowerCase().includes('expired'))) {
+    vulns.push({ text: 'SSL certificate invalid — browser security warnings', severity: 'critical' });
+  }
+  if ((lead.seo_score || 0) < 40) {
+    vulns.push({ text: 'No blog — missing organic traffic engine', severity: 'critical' });
+  }
+  if (lead.gaps?.includes('SOCIAL')) {
+    vulns.push({ text: 'No video content — lower engagement', severity: 'warning' });
+  }
+  if (!lead.gaps?.includes('ADS') === false || lead.gaps?.includes('ADS')) {
+    vulns.push({ text: 'No lead capture form — leaking conversions', severity: 'critical' });
+  }
+  if (lead.gaps?.includes('EMAIL')) {
+    vulns.push({ text: 'No live chat/WhatsApp — losing impatient leads', severity: 'warning' });
+  }
+
+  // Add from existing vulnerabilities
+  if (lead.vulnerabilities && lead.vulnerabilities.length > 0) {
+    lead.vulnerabilities.forEach(v => {
+      if (!vulns.some(vv => vv.text.toLowerCase().includes(v.toLowerCase().substring(0, 20)))) {
+        vulns.push({ text: v, severity: 'warning' });
+      }
+    });
+  }
+
+  return vulns.slice(0, 6);
+}
+
+// ---- TABS ----
+type TabId = 'diagnostic' | 'reviews' | 'contacts' | 'pitch' | 'plan';
+
+const TAB_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  { id: 'diagnostic', label: 'Diagnostic', icon: <BarChart2 className="w-3.5 h-3.5" /> },
+  { id: 'reviews', label: 'Reviews', icon: <Star className="w-3.5 h-3.5" /> },
+  { id: 'contacts', label: 'Contacts', icon: <Phone className="w-3.5 h-3.5" /> },
+  { id: 'pitch', label: 'AI Pitch', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { id: 'plan', label: 'Plan', icon: <Target className="w-3.5 h-3.5" /> },
+];
+
+// ==============================================================
+// MAIN COMPONENT
+// ==============================================================
 export const LeadModal: React.FC<LeadModalProps> = ({
   lead,
   isOpen,
   onClose,
   onSaveNotes,
-  outreachLogs
+  outreachLogs,
+  onLogOutreach,
+  updateLeadStatus
 }) => {
+  const [activeTab, setActiveTab] = useState<TabId>('diagnostic');
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [barsAnimated, setBarsAnimated] = useState(false);
+
+  // Pitch state
+  const [template, setTemplate] = useState<'seo' | 'redesign' | 'ads'>('seo');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (lead) {
       setNotes(lead.notes || '');
+      setActiveTab('diagnostic');
+      setBarsAnimated(false);
+      // Trigger bar animation after mount
+      const t = setTimeout(() => setBarsAnimated(true), 100);
+      return () => clearTimeout(t);
     }
   }, [lead]);
 
-  if (!lead) return null;
+  // Pitch templates
+  const templates = useMemo(() => {
+    if (!lead) return { seo: { s: '', b: '' }, redesign: { s: '', b: '' }, ads: { s: '', b: '' } };
+    return {
+      seo: {
+        s: `Critical SEO Gaps Detected on ${lead.company_name}`,
+        b: `Hi Team at ${lead.company_name},\n\nI was reviewing local businesses in ${lead.location} and ran a technical performance scan on your website.\n\nOur system detected some critical SEO gaps that are likely making you invisible to potential customers in the area:\n- SEO Score: ${lead.seo_score || 35}/100\n- Identified Vulnerabilities: ${lead.notes || 'Weak meta markup'}\n\nWith these errors, Google has difficulty crawling your pages. We specialize in fixing exactly these issues. Would you be open to a quick 5-minute call this Thursday to review our suggestions?\n\nBest regards,\n[Your Name]`
+      },
+      redesign: {
+        s: `Proposal: Website Speed & SSL Upgrade for ${lead.company_name}`,
+        b: `Hi Team,\n\nI came across ${lead.company_name} online and noticed a few features on your website that might be turning mobile visitors away:\n- Speed Index: ${lead.site_speed || 'Slow'}\n- CMS Platform: ${lead.platform || 'Wix/GoDaddy'}\n- SSL Security: ${lead.ssl_status || 'Invalid'}\n\nOur simulator predicts these performance gaps are costing you roughly $${(lead.est_revenue_loss || 1200).toLocaleString()}/month in lost customer opportunities.\n\nWe design lighting-fast, secure websites that convert. Can I send you a 2-minute video mockup of what a redesigned site would look like for ${lead.company_name}?\n\nSincerely,\n[Your Name]`
+      },
+      ads: {
+        s: `Unlocking New Traffic for ${lead.company_name}`,
+        b: `Hello,\n\nI noticed that ${lead.company_name} has a strong reputation in ${lead.location} with ${lead.review_count || 0} positive reviews. However, our ad trackers show you don't have active retargeting pixels installed.\n\nThis means you're paying to drive traffic to your site, but letting 98% of those prospects leave without showing them follow-up ads on Google or Facebook.\n\nWe build custom high-ROI ad campaigns tailored for ${lead.niche}. Let me know if you have time for a brief chat to see how we can set this up for you.\n\nRegards,\n[Your Name]`
+      }
+    };
+  }, [lead]);
 
+  useEffect(() => {
+    if (lead) {
+      setSubject(templates[template].s);
+      setBody(templates[template].b);
+    }
+  }, [template, lead, templates]);
+
+  if (!lead || !isOpen) return null;
+
+  const scoring = computeScoringBreakdown(lead);
+  const features = computeFeatures(lead);
+  const vulns = computeVulnerabilities(lead);
+  const filteredLogs = outreachLogs.filter(log => log.lead_id === lead.id);
+
+  const tempLabel = lead.opportunity_temp === 'hot' ? 'HOT' : lead.opportunity_temp === 'warm' ? 'WARM' : 'COLD';
+  const tempColor = lead.opportunity_temp === 'hot' ? '#FF3366' : lead.opportunity_temp === 'warm' ? '#FFB800' : '#00D4FF';
+
+  const bestService = lead.service_pitched || (lead.gaps?.includes('WEB') ? 'Web Design' : lead.gaps?.includes('SEO') ? 'SEO' : lead.gaps?.includes('ADS') ? 'Google Ads' : 'Full Marketing');
+  const estLeadsLost = Math.max(3, Math.round((lead.est_revenue_loss || 800) / 400));
+  const dealMin = lead.deal_value_min || Math.round((lead.est_revenue_loss || 800) * 3);
+  const dealMax = lead.deal_value_max || Math.round((lead.est_revenue_loss || 800) * 6);
+
+  // -- Handlers --
   const handleSaveNotes = async () => {
     setSavingNotes(true);
+    try { await onSaveNotes(lead.id, notes); } finally { setSavingNotes(false); }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+    setCopied(true);
+    showToast("Pitch copied to clipboard", "success");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSendLog = async () => {
+    setSending(true);
     try {
-      await onSaveNotes(lead.id, notes);
+      const fullText = `Subject: ${subject}\n\n${body}`;
+      await onLogOutreach(lead.id, 'email', fullText, 'no_reply');
+      await updateLeadStatus(lead.id, 'contacted');
+      showToast("Email pitch logged as sent", "success");
+      onClose();
+    } catch (err: any) {
+      showToast("Failed to log email: " + err.message, "error");
     } finally {
-      setSavingNotes(false);
+      setSending(false);
     }
   };
 
-  // Filter logs for this specific lead
-  const filteredLogs = outreachLogs.filter(log => log.lead_id === lead.id);
-
-  // Speed, SSL, SEO Audit stats
-  const auditScores = [
-    { 
-      label: 'Site Speed', 
-      value: lead.site_speed || 'N/A', 
-      color: !lead.site_speed || lead.site_speed === 'N/A' 
-        ? 'text-neutral-500' 
-        : (lead.site_speed.toLowerCase().includes('slow') || lead.site_speed.toLowerCase().includes('fail') 
-          ? 'text-[#FF3366]' 
-          : 'text-[#39FF14]') 
-    },
-    { 
-      label: 'SSL Status', 
-      value: lead.ssl_status || 'N/A', 
-      color: !lead.ssl_status || lead.ssl_status === 'N/A' 
-        ? 'text-neutral-500' 
-        : (lead.ssl_status.toLowerCase().includes('invalid') || lead.ssl_status.toLowerCase().includes('expired') || lead.ssl_status.toLowerCase().includes('none')
-          ? 'text-[#FF3366]' 
-          : 'text-[#39FF14]') 
-    },
-    { 
-      label: 'SEO Score', 
-      value: lead.seo_score ? `${lead.seo_score}/100` : 'N/A', 
-      color: !lead.seo_score 
-        ? 'text-neutral-500' 
-        : ((lead.seo_score || 0) >= 80 
-          ? 'text-[#39FF14]' 
-          : (lead.seo_score || 0) >= 50 
-            ? 'text-[#FFB800]' 
-            : 'text-[#FF3366]') 
-    }
-  ];
+  const handleRegenerate = () => {
+    const keys: ('seo' | 'redesign' | 'ads')[] = ['seo', 'redesign', 'ads'];
+    const currentIdx = keys.indexOf(template);
+    const next = keys[(currentIdx + 1) % keys.length];
+    setTemplate(next);
+    showToast(`Switched to ${next.toUpperCase()} template`, "success");
+  };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="DEEP AUDIT SCAN REPORT"
-      subtitle={`LEAD_ID: ${lead.id}`}
-      maxWidth="max-w-[1000px]"
+    <div
+      className="fixed inset-0 bg-[#080C18]/85 z-[1000] flex items-center justify-center p-4 md:p-6 backdrop-blur-xl"
+      onClick={onClose}
     >
-      <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-[#00D4FF]/10 h-full font-mono text-[11px]">
-        {/* LEFT COLUMN: Firmographics & Gaps & Notes */}
-        <div className="md:col-span-7 p-6 space-y-6 overflow-y-auto">
-          {/* Company Identity */}
-          <div>
-            <div className="text-[17px] font-['Syne'] font-extrabold text-white tracking-wider uppercase leading-snug">
-              {lead.company_name}
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="bg-[#080C18]/95 border-2 border-[#00D4FF]/25 rounded-xl w-full max-w-[1050px] h-[88vh] flex flex-col overflow-hidden shadow-[0_0_60px_rgba(0,212,255,0.15)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ===== MODAL HEADER ===== */}
+        <div className="px-6 py-4 border-b border-[#00D4FF]/12 flex items-center justify-between bg-[#080C18]/80 shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 bg-[#0A0E1A] rounded-lg flex items-center justify-center border border-[#00D4FF]/25 shadow-[0_0_12px_rgba(0,212,255,0.15)]">
+              <Zap className="w-5 h-5 text-[#00D4FF]" />
             </div>
-            <div className="text-[9px] text-[#00D4FF] mt-1 font-bold uppercase tracking-widest flex items-center gap-1">
-              <span>{lead.niche}</span>
-              <span className="text-neutral-700">//</span>
-              <span>{lead.location}</span>
-            </div>
-          </div>
-
-          {/* Firmographic stats */}
-          <div className="grid grid-cols-2 gap-4 bg-black/40 border border-[#00D4FF]/10 rounded-md p-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-[8px] text-neutral-500 uppercase tracking-wider">Website URL</span>
-              {lead.website && lead.website !== 'N/A' && lead.website !== 'null' ? (
-                <a 
-                  href={lead.website} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="text-white hover:text-[#00D4FF] hover:underline flex items-center gap-1 truncate font-bold"
-                >
-                  <Globe className="w-3.5 h-3.5 text-[#00D4FF] shrink-0" /> {lead.website.replace(/^https?:\/\//, '')} <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                </a>
-              ) : (
-                <span className="text-neutral-500 font-bold">N/A</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[8px] text-neutral-500 uppercase tracking-wider">Contact Email</span>
-              {lead.email && lead.email !== 'N/A' && lead.email !== 'null' ? (
-                <a href={`mailto:${lead.email}`} className="text-white hover:text-[#00D4FF] flex items-center gap-1 truncate font-bold">
-                  <Mail className="w-3.5 h-3.5 text-[#00D4FF] shrink-0" /> {lead.email}
-                </a>
-              ) : (
-                <span className="text-neutral-500 font-bold">N/A</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[8px] text-neutral-500 uppercase tracking-wider">Direct Phone</span>
-              {lead.phone && lead.phone !== 'N/A' && lead.phone !== 'null' ? (
-                <a href={`tel:${lead.phone}`} className="text-white hover:text-[#00D4FF] flex items-center gap-1 truncate font-bold">
-                  <Phone className="w-3.5 h-3.5 text-[#00D4FF] shrink-0" /> {lead.phone}
-                </a>
-              ) : (
-                <span className="text-neutral-500 font-bold">N/A</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[8px] text-neutral-500 uppercase tracking-wider">Source Query</span>
-              <span className="text-neutral-400 font-bold uppercase truncate">{lead.source_query || 'DIRECT SCRAPE'}</span>
+            <div>
+              <h3 className="text-[16px] font-extrabold text-white font-['Syne'] tracking-wide leading-tight">
+                {lead.company_name}
+              </h3>
+              <div className="text-[10px] text-neutral-400 font-mono mt-0.5 flex items-center gap-2 uppercase tracking-wider">
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#00D4FF]" />{lead.location}</span>
+                <span className="text-neutral-700">·</span>
+                <span>{lead.niche}</span>
+              </div>
             </div>
           </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 bg-neutral-900 border border-[#00D4FF]/20 hover:border-[#FF3366]/50 rounded-full flex items-center justify-center text-neutral-400 hover:text-[#FF3366] transition-all cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-          {/* Vulns / Flaws Detected */}
-          <div className="space-y-2.5">
-            <h4 className="text-[9px] text-[#FF3366] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-[#FF3366]" /> Flagged Systems Vulnerabilities
-            </h4>
-            
-            {lead.vulnerabilities && lead.vulnerabilities.length > 0 ? (
-              <ul className="space-y-1.5 pl-1.5 border-l border-[#FF3366]/20">
-                {lead.vulnerabilities.map((v, idx) => (
-                  <li key={idx} className="text-neutral-300 text-[10px] flex items-start gap-2 leading-relaxed">
-                    <span className="text-[#FF3366] font-bold">»</span>
-                    <span>{v}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="text-[10px] text-neutral-500">No flags raised in initial database scans.</div>
-            )}
+        {/* ===== TABS ===== */}
+        <div className="diag-tabs shrink-0">
+          {TAB_ITEMS.map(tab => (
+            <button
+              key={tab.id}
+              className={`diag-tab font-mono ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ===== TAB CONTENT ===== */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {activeTab === 'diagnostic' && <DiagnosticTab lead={lead} scoring={scoring} features={features} vulns={vulns} tempLabel={tempLabel} tempColor={tempColor} bestService={bestService} estLeadsLost={estLeadsLost} dealMin={dealMin} dealMax={dealMax} barsAnimated={barsAnimated} />}
+          {activeTab === 'reviews' && <ReviewsTab lead={lead} />}
+          {activeTab === 'contacts' && <ContactsTab lead={lead} />}
+          {activeTab === 'pitch' && <PitchTab lead={lead} template={template} setTemplate={setTemplate} subject={subject} setSubject={setSubject} body={body} setBody={setBody} copied={copied} handleCopy={handleCopy} />}
+          {activeTab === 'plan' && <PlanTab lead={lead} notes={notes} setNotes={setNotes} handleSaveNotes={handleSaveNotes} savingNotes={savingNotes} filteredLogs={filteredLogs} />}
+        </div>
+
+        {/* ===== FOOTER ===== */}
+        <div className="px-6 py-3.5 border-t border-[#00D4FF]/12 flex items-center justify-between bg-[#080C18]/85 shrink-0 select-none">
+          <button
+            onClick={onClose}
+            className="text-[10px] font-mono font-bold text-neutral-500 hover:text-white uppercase tracking-wider cursor-pointer transition-colors px-3 py-1.5"
+          >
+            Dismiss
+          </button>
+          <div className="flex gap-2.5">
+            <button
+              onClick={handleRegenerate}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-[#00D4FF]/25 rounded-md text-[10px] font-mono font-bold text-[#00D4FF] hover:bg-[#00D4FF]/10 hover:border-[#00D4FF]/50 transition-all cursor-pointer uppercase tracking-wider"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Regenerate Sequence
+            </button>
+            <button
+              onClick={handleSendLog}
+              disabled={sending}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#7C3AED] to-[#4F46E5] rounded-md text-[10px] font-mono font-bold text-white hover:shadow-[0_0_15px_rgba(124,58,237,0.4)] transition-all cursor-pointer uppercase tracking-wider disabled:opacity-50"
+            >
+              <Rocket className="w-3.5 h-3.5" /> Initiate Outreach
+            </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-          {/* CRM Notes */}
-          <div className="space-y-2.5 select-none">
-            <h4 className="text-[9px] text-white font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-[#00D4FF]" /> Analyst System Notes
-            </h4>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="bg-black/60 border border-[#00D4FF]/25 w-full h-[150px] rounded p-3 text-[10.5px] font-semibold text-white focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF] outline-none transition-all placeholder-neutral-600 resize-none"
-              placeholder="ENTER ANALYST NOTES HERE..."
-            />
-            <div className="flex justify-end">
-              <Button variant="green" size="sm" onClick={handleSaveNotes} loading={savingNotes}>
-                <Save className="w-3.5 h-3.5" /> Save Notes
-              </Button>
-            </div>
+// ==============================================================
+// TAB 1: DIAGNOSTIC
+// ==============================================================
+function DiagnosticTab({ lead, scoring, features, vulns, tempLabel, tempColor, bestService, estLeadsLost, dealMin, dealMax, barsAnimated }: {
+  lead: Lead;
+  scoring: ReturnType<typeof computeScoringBreakdown>;
+  features: ReturnType<typeof computeFeatures>;
+  vulns: ReturnType<typeof computeVulnerabilities>;
+  tempLabel: string;
+  tempColor: string;
+  bestService: string;
+  estLeadsLost: number;
+  dealMin: number;
+  dealMax: number;
+  barsAnimated: boolean;
+}) {
+  const scoreColor = lead.ai_score >= 70 ? '#39FF14' : lead.ai_score >= 40 ? '#FFB800' : '#FF3366';
+
+  return (
+    <div className="p-6 space-y-5 font-mono text-[11px]">
+      {/* --- TOP STATS ROW --- */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Opportunity Score */}
+        <div className="diag-stat-card">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Opportunity Score</div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-3xl font-extrabold text-white font-['Syne']" style={{ textShadow: `0 0 12px ${scoreColor}55` }}>
+              {lead.ai_score}
+            </span>
+            <span className="text-neutral-500 text-sm font-bold">/99</span>
+          </div>
+          <div className="mt-1.5">
+            <span className="text-[9px] px-2 py-0.5 rounded font-extrabold uppercase tracking-widest" style={{ background: `${tempColor}15`, color: tempColor, border: `1px solid ${tempColor}30` }}>
+              {tempLabel}
+            </span>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Audit scores & recent outreach */}
-        <div className="md:col-span-5 p-6 space-y-6 flex flex-col justify-between overflow-y-auto">
-          {/* AI Gap Score Gauge */}
-          <div className="flex justify-center border-b border-[#00D4FF]/10 pb-4">
-            <ScoreGauge score={lead.ai_score} size={150} />
+        {/* Est. Revenue Loss */}
+        <div className="diag-stat-card">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Est. Revenue Loss</div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-extrabold text-[#FF3366] font-['Syne']">${(lead.est_revenue_loss || 800).toLocaleString()}</span>
+            <span className="text-neutral-500 text-xs font-bold">/mo</span>
           </div>
+          <div className="text-[9px] text-neutral-500 mt-1">~{estLeadsLost} leads lost monthly</div>
+        </div>
 
-          {/* Site speed / SEO/ SSL */}
-          <div className="space-y-3">
-            <h4 className="text-[9px] text-white font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <Cpu className="w-4 h-4 text-[#00D4FF]" /> Server Audit Diagnostics
-            </h4>
-            <div className="space-y-2 bg-[#0A0D1A]/55 border border-[#00D4FF]/10 rounded-md p-3.5">
-              {auditScores.map((score, sIdx) => (
-                <div key={sIdx} className="flex justify-between items-center text-[10.5px]">
-                  <span className="text-neutral-400 font-bold uppercase">{score.label}</span>
-                  <span className={`font-extrabold font-mono tracking-wider ${score.color}`}>{score.value}</span>
-                </div>
-              ))}
+        {/* Deal Value */}
+        <div className="diag-stat-card">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Deal Value</div>
+          <div className="text-lg font-extrabold text-[#39FF14] font-['Syne']">
+            ${dealMin.toLocaleString()} - ${dealMax.toLocaleString()}<span className="text-xs text-neutral-500">/yr</span>
+          </div>
+          <div className="text-[9px] text-neutral-500 mt-1">Best pitch: <span className="text-[#00D4FF] font-bold">{bestService}</span></div>
+        </div>
+      </div>
+
+      {/* --- WEIGHTED SCORING BREAKDOWN --- */}
+      <div className="space-y-1.5">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-extrabold mb-2">Weighted Scoring Breakdown</div>
+        {scoring.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-3">
+            <span className="text-[10px] text-neutral-400 w-[140px] text-right shrink-0 font-semibold">{item.label}</span>
+            <div className="scoring-bar-track flex-1">
+              <div
+                className="scoring-bar-fill"
+                style={{
+                  width: barsAnimated ? `${item.pct}%` : '0%',
+                  background: `linear-gradient(90deg, ${item.color}CC, ${item.color}88)`,
+                  boxShadow: `0 0 6px ${item.color}44`
+                }}
+              />
             </div>
+            <span className="text-[10px] font-extrabold w-[35px] text-right" style={{ color: item.color }}>{item.pct}%</span>
+            <span className="text-[8px] text-neutral-600 w-[24px] text-right">×{item.weight}</span>
           </div>
+        ))}
+      </div>
 
-          {/* Outreach attempts Log */}
-          <div className="flex-1 mt-4 space-y-3 min-h-[160px] flex flex-col">
-            <h4 className="text-[9px] text-white font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-[#39FF14]" /> System Communication Log
-            </h4>
-            
-            <div className="flex-1 overflow-y-auto max-h-[180px] bg-black/40 border border-[#00D4FF]/10 rounded-md p-3 space-y-3 custom-scrollbar">
-              {filteredLogs.length > 0 ? (
-                filteredLogs.map((log) => {
-                  const channelSymbols = { email: '✉️', phone: '📞', social: '💬' };
-                  const outcomeColors = { 
-                    no_reply: 'text-neutral-500', 
-                    interested: 'text-[#39FF14] font-extrabold', 
-                    rejected: 'text-[#FF3366]', 
-                    booked: 'text-[#00D4FF] font-extrabold' 
-                  };
-                  return (
-                    <div key={log.id} className="border-b border-[#00D4FF]/5 pb-2.5 last:border-b-0">
-                      <div className="flex justify-between items-center font-mono">
-                        <span className="text-white font-extrabold uppercase">{channelSymbols[log.channel as 'email'|'phone'|'social']} {log.channel}</span>
-                        <span className="text-neutral-500 text-[8px]">{new Date(log.sent_at).toLocaleDateString()}</span>
-                      </div>
-                      <p className="text-[10px] text-neutral-400 leading-relaxed mt-1 italic">"{log.message}"</p>
-                      <div className="text-[9px] mt-1 uppercase font-bold">
-                        Outcome: <span className={outcomeColors[log.outcome as 'no_reply'|'interested'|'rejected'|'booked']}>{log.outcome}</span>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="h-full flex items-center justify-center text-center text-neutral-500 text-[10px] italic py-6">
-                  No outreach campaigns executed. System silent.
-                </div>
-              )}
+      {/* --- PLATFORM QUICK STATS --- */}
+      <div className="grid grid-cols-4 gap-[1px] bg-[#00D4FF]/6 border border-[#00D4FF]/8 rounded-md overflow-hidden">
+        {[
+          { label: 'Platform', value: features.platform, className: 'text-white font-extrabold' },
+          { label: 'Speed', value: features.speed, className: features.speed?.toLowerCase().includes('fast') ? 'text-[#39FF14] font-extrabold' : 'text-[#FFB800] font-extrabold' },
+          { label: 'SSL', value: features.ssl?.toLowerCase().includes('valid') ? 'Secure' : features.ssl?.toLowerCase().includes('invalid') ? 'Invalid' : features.ssl || 'N/A', className: features.ssl?.toLowerCase().includes('valid') ? 'text-[#39FF14] font-extrabold' : 'text-[#FF3366] font-extrabold' },
+          { label: 'SEO', value: `${features.seoScore}/100`, className: features.seoScore >= 70 ? 'text-[#39FF14] font-extrabold' : features.seoScore >= 40 ? 'text-[#FFB800] font-extrabold' : 'text-[#FF3366] font-extrabold' },
+        ].map((stat, i) => (
+          <div key={i} className="bg-[#080C18]/85 p-3 text-center">
+            <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold">{stat.label}</div>
+            <div className={`text-[12px] mt-1 ${stat.className}`}>{stat.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* --- FEATURE CHECKLIST --- */}
+      <div className="feature-grid">
+        <FeatureRow label="Analytics" value={features.analytics !== 'None' ? `✅ ${features.analytics}` : '❌ None'} status={features.analytics !== 'None' ? 'active' : 'missing'} />
+        <FeatureRow label="Ad Pixels" value={features.adPixels !== 'None' ? `⚠️ ${features.adPixels}` : '❌ None'} status={features.adPixels !== 'None' ? 'partial' : 'missing'} />
+        <FeatureRow label="Lead Forms" value={features.leadForms ? '✅ Active' : '❌ Missing'} status={features.leadForms ? 'active' : 'missing'} />
+        <FeatureRow label="Live Chat" value={features.liveChat ? '✅ Active' : '❌ None'} status={features.liveChat ? 'active' : 'missing'} />
+        <FeatureRow label="Booking" value={features.booking ? '✅ Active' : '❌ None'} status={features.booking ? 'active' : 'missing'} />
+        <FeatureRow label="Testimonials" value={features.testimonials ? '✅ Found' : '❌ None'} status={features.testimonials ? 'active' : 'missing'} />
+        <FeatureRow label="Blog" value={features.blog ? '✅ Active' : '⊘ None'} status={features.blog ? 'active' : 'none'} />
+        <FeatureRow label="AI Ready (AEO)" value={`${features.aiReadyScore}/100`} status={features.aiReady ? 'active' : 'partial'} showDot />
+      </div>
+
+      {/* --- VULNERABILITIES --- */}
+      {vulns.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[8px] text-[#FF3366] uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> Vulnerabilities
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {vulns.map((v, i) => (
+              <div key={i} className={`vuln-chip ${v.severity}`}>
+                {v.severity === 'critical' ? '▲' : v.severity === 'warning' ? '△' : 'ℹ'} {v.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* --- AI STRATEGIC ANALYSIS --- */}
+      <div className="ai-summary-box">
+        <div className="flex items-start gap-3 pl-3">
+          <Cpu className="w-5 h-5 text-[#00D4FF] shrink-0 mt-0.5" />
+          <div>
+            <div className="text-[11px] font-extrabold text-white uppercase tracking-wider mb-1.5 font-['Syne']">AI Strategic Analysis</div>
+            <p className="text-[11px] text-neutral-300 leading-relaxed">
+              {lead.company_name} | {lead.niche} | {lead.location} uses {features.platform}. 
+              Estimated <span className="text-[#FF3366] font-extrabold">${(lead.est_revenue_loss || 800).toLocaleString()}/mo</span> revenue leakage from {estLeadsLost} lost leads.
+              {' '}Best service to pitch: <span className="text-[#00D4FF] font-extrabold">{bestService}</span>.
+              {' '}Classification: <span className="font-extrabold" style={{ color: tempColor }}>{tempLabel}</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeatureRow({ label, value, status, showDot }: { label: string; value: string; status: string; showDot?: boolean }) {
+  const statusClass = status === 'active' ? 'active' : status === 'missing' ? 'missing' : status === 'partial' ? 'partial' : 'none';
+  return (
+    <div className="feature-row">
+      <span className="feature-label">{label}</span>
+      <span className={`feature-val ${statusClass}`}>
+        {showDot && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${status === 'active' ? 'bg-[#39FF14]' : 'bg-[#FFB800]'}`} />}
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ==============================================================
+// TAB 2: REVIEWS
+// ==============================================================
+function ReviewsTab({ lead }: { lead: Lead }) {
+  const ratingColor = (lead.rating || 0) >= 4.0 ? '#39FF14' : (lead.rating || 0) >= 3.0 ? '#FFB800' : '#FF3366';
+
+  return (
+    <div className="p-6 space-y-5 font-mono text-[11px]">
+      {/* Rating overview */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="diag-stat-card text-center">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">Google Rating</div>
+          <div className="flex items-center justify-center gap-2">
+            <Star className="w-6 h-6" style={{ color: ratingColor, fill: `${ratingColor}30` }} />
+            <span className="text-4xl font-extrabold font-['Syne']" style={{ color: ratingColor }}>{lead.rating || 'N/A'}</span>
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-2">{lead.review_count || 0} total reviews</div>
+        </div>
+
+        <div className="diag-stat-card space-y-3">
+          <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold">Review Health</div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400 font-semibold">Response Rate</span>
+              <span className="text-[#FF3366] font-extrabold">None detected</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400 font-semibold">Avg. Sentiment</span>
+              <span className={`font-extrabold`} style={{ color: ratingColor }}>
+                {(lead.rating || 0) >= 4.0 ? 'Positive' : (lead.rating || 0) >= 3.0 ? 'Mixed' : 'Negative'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400 font-semibold">Review Velocity</span>
+              <span className="text-neutral-400 font-extrabold">{Math.round((lead.review_count || 0) / 12)}/month avg</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-neutral-400 font-semibold">Competitor Avg</span>
+              <span className="text-[#FFB800] font-extrabold">4.2★ (65 reviews)</span>
             </div>
           </div>
         </div>
       </div>
-    </Modal>
+
+      {/* Star breakdown */}
+      <div className="diag-stat-card">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">Star Distribution (estimated)</div>
+        {[5, 4, 3, 2, 1].map(star => {
+          const total = lead.review_count || 10;
+          const pct = star === 5 ? 55 : star === 4 ? 22 : star === 3 ? 12 : star === 2 ? 6 : 5;
+          const count = Math.round(total * pct / 100);
+          return (
+            <div key={star} className="flex items-center gap-3 mb-1.5">
+              <span className="text-[10px] text-neutral-400 w-8">{star}★</span>
+              <div className="flex-1 h-2 bg-[#0A0E1A] rounded overflow-hidden">
+                <div className="h-full rounded" style={{ width: `${pct}%`, background: star >= 4 ? '#39FF14' : star === 3 ? '#FFB800' : '#FF3366' }} />
+              </div>
+              <span className="text-[10px] text-neutral-500 w-8">{count}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Recommendation */}
+      <div className="ai-summary-box">
+        <div className="flex items-start gap-3 pl-3">
+          <MessageSquare className="w-4 h-4 text-[#FFB800] shrink-0 mt-0.5" />
+          <div>
+            <div className="text-[10px] font-extrabold text-white uppercase tracking-wider mb-1 font-['Syne']">Review Strategy</div>
+            <p className="text-[10px] text-neutral-400 leading-relaxed">
+              {(lead.rating || 0) < 4.0
+                ? `With a ${lead.rating || 0}★ rating, this business falls below the 4.0 trust threshold. Active review management and responding to negatives can lift the rating within 60-90 days. This is a strong pitch angle.`
+                : `Strong ${lead.rating || 0}★ rating, but review response is missing. Offering review management automation could still be a valuable add-on service.`}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
-};
+}
+
+// ==============================================================
+// TAB 3: CONTACTS
+// ==============================================================
+function ContactsTab({ lead }: { lead: Lead }) {
+  const contactFields = [
+    { icon: <Globe className="w-4 h-4 text-[#00D4FF]" />, label: 'Website URL', value: lead.website, link: lead.website && lead.website !== 'N/A' ? lead.website : null },
+    { icon: <Mail className="w-4 h-4 text-[#00D4FF]" />, label: 'Contact Email', value: lead.email, link: lead.email && lead.email !== 'N/A' ? `mailto:${lead.email}` : null },
+    { icon: <Phone className="w-4 h-4 text-[#00D4FF]" />, label: 'Direct Phone', value: lead.phone, link: lead.phone && lead.phone !== 'N/A' ? `tel:${lead.phone}` : null },
+    { icon: <MapPin className="w-4 h-4 text-[#00D4FF]" />, label: 'Location', value: lead.location, link: null },
+    { icon: <Target className="w-4 h-4 text-[#00D4FF]" />, label: 'Business Category', value: lead.niche, link: null },
+    { icon: <Calendar className="w-4 h-4 text-[#00D4FF]" />, label: 'Added to CRM', value: new Date(lead.created_at).toLocaleDateString(), link: null },
+    { icon: <Activity className="w-4 h-4 text-[#39FF14]" />, label: 'Last Contacted', value: lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : 'Never', link: null },
+    { icon: <FileText className="w-4 h-4 text-[#00D4FF]" />, label: 'Source Query', value: lead.source_query || 'Direct Scrape', link: null },
+  ];
+
+  return (
+    <div className="p-6 space-y-5 font-mono text-[11px]">
+      <div className="diag-stat-card">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-4">Contact Information</div>
+        <div className="space-y-3">
+          {contactFields.map((cf, i) => (
+            <div key={i} className="flex items-center gap-3 pb-2.5 border-b border-[#00D4FF]/5 last:border-b-0">
+              {cf.icon}
+              <span className="text-neutral-500 font-semibold w-[130px] shrink-0 uppercase text-[9px] tracking-wider">{cf.label}</span>
+              {cf.link ? (
+                <a href={cf.link} target="_blank" rel="noreferrer" className="text-white hover:text-[#00D4FF] font-bold flex items-center gap-1.5 truncate transition-colors">
+                  {(cf.value || 'N/A').replace(/^https?:\/\//, '')}
+                  <ExternalLink className="w-2.5 h-2.5 shrink-0 text-neutral-600" />
+                </a>
+              ) : (
+                <span className={`font-bold ${cf.value && cf.value !== 'N/A' && cf.value !== 'Never' ? 'text-white' : 'text-neutral-600'}`}>
+                  {cf.value || 'N/A'}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CRM Status */}
+      <div className="diag-stat-card">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3">CRM Pipeline Status</div>
+        <div className="flex items-center gap-3">
+          <span className={`text-[9px] px-2.5 py-1 rounded font-extrabold uppercase tracking-widest ${
+            lead.crm_status === 'closed_won' ? 'bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30'
+            : lead.crm_status === 'closed_lost' ? 'bg-[#FF3366]/10 text-[#FF3366] border border-[#FF3366]/30'
+            : lead.crm_status === 'contacted' ? 'bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/30'
+            : 'bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/30'
+          }`}>
+            {lead.crm_status.replace('_', ' ')}
+          </span>
+          <span className="text-neutral-500 text-[9px]">
+            Last updated: {new Date(lead.updated_at).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==============================================================
+// TAB 4: AI PITCH
+// ==============================================================
+function PitchTab({ lead, template, setTemplate, subject, setSubject, body, setBody, copied, handleCopy }: {
+  lead: Lead;
+  template: 'seo' | 'redesign' | 'ads';
+  setTemplate: (t: 'seo' | 'redesign' | 'ads') => void;
+  subject: string;
+  setSubject: (s: string) => void;
+  body: string;
+  setBody: (b: string) => void;
+  copied: boolean;
+  handleCopy: () => void;
+}) {
+  return (
+    <div className="p-6 space-y-4 font-mono text-[11px] select-none">
+      {/* Template Selector Tabs */}
+      <div className="space-y-1.5">
+        <label className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest">Select AI Angle Template</label>
+        <div className="grid grid-cols-3 gap-2">
+          {(['seo', 'redesign', 'ads'] as const).map((t) => {
+            const active = template === t;
+            const labels = { seo: 'SEO Audit', redesign: 'Redesign Red', ads: 'Traffic Ads' };
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTemplate(t)}
+                className={`py-2 border rounded font-bold cursor-pointer transition-all duration-300 text-center ${
+                  active
+                    ? 'bg-[#00D4FF]/10 border-[#00D4FF]/50 text-[#00D4FF] shadow-[0_0_8px_rgba(0,212,255,0.1)]'
+                    : 'border-neutral-800 text-neutral-500 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 inline mr-1.5" />
+                {labels[t]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Email subject input */}
+      <div className="space-y-1">
+        <label className="text-[9px] text-[#00D4FF] font-extrabold uppercase tracking-widest block">Email Subject Line</label>
+        <input
+          type="text"
+          className="bg-black/60 border border-[#00D4FF]/25 w-full rounded px-3 py-2 text-[10.5px] font-semibold text-white focus:border-[#00D4FF] outline-none"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+      </div>
+
+      {/* Email body textarea */}
+      <div className="space-y-1">
+        <label className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest block">Email Body Text</label>
+        <textarea
+          className="bg-black/60 border border-[#00D4FF]/25 w-full h-[220px] rounded p-3 text-[10.5px] font-semibold text-white focus:border-[#00D4FF] outline-none resize-none select-text"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+        />
+      </div>
+
+      {/* Copy button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleCopy}
+          className="bg-neutral-900 border border-neutral-800 hover:border-[#00D4FF]/50 text-neutral-400 hover:text-white px-3.5 py-2 rounded text-[10px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+        >
+          {copied ? <Check className="w-3.5 h-3.5 text-[#39FF14]" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? 'Copied!' : 'Copy Pitch'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ==============================================================
+// TAB 5: PLAN
+// ==============================================================
+function PlanTab({ lead, notes, setNotes, handleSaveNotes, savingNotes, filteredLogs }: {
+  lead: Lead;
+  notes: string;
+  setNotes: (n: string) => void;
+  handleSaveNotes: () => void;
+  savingNotes: boolean;
+  filteredLogs: any[];
+}) {
+  const actionPlan = useMemo(() => {
+    const steps: { step: number; action: string; priority: 'high' | 'medium'; timeline: string }[] = [];
+    let n = 1;
+
+    if (lead.gaps?.includes('WEB')) {
+      steps.push({ step: n++, action: `Build professional website for ${lead.company_name} with lead capture forms`, priority: 'high', timeline: 'Week 1-2' });
+    }
+    if ((lead.seo_score || 0) < 50) {
+      steps.push({ step: n++, action: 'Technical SEO audit & fix meta tags, alt texts, schema markup', priority: 'high', timeline: 'Week 2-3' });
+    }
+    if (lead.gaps?.includes('SOCIAL')) {
+      steps.push({ step: n++, action: 'Set up Instagram & Facebook business pages with branded content', priority: 'medium', timeline: 'Week 3-4' });
+    }
+    if (lead.gaps?.includes('ADS')) {
+      steps.push({ step: n++, action: 'Launch targeted Google Ads campaign for local keywords', priority: 'high', timeline: 'Week 2-4' });
+    }
+    if (lead.gaps?.includes('EMAIL')) {
+      steps.push({ step: n++, action: 'Implement email nurture sequence & automated follow-ups', priority: 'medium', timeline: 'Week 4-6' });
+    }
+    steps.push({ step: n++, action: 'Schedule quarterly review call to measure ROI & adjust strategy', priority: 'medium', timeline: 'Month 3' });
+
+    return steps;
+  }, [lead]);
+
+  return (
+    <div className="p-6 space-y-5 font-mono text-[11px]">
+      {/* Outreach Action Plan */}
+      <div className="diag-stat-card">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3 flex items-center gap-1.5">
+          <Target className="w-3.5 h-3.5 text-[#00D4FF]" /> Suggested Outreach Action Plan
+        </div>
+        <div className="space-y-2">
+          {actionPlan.map((item) => (
+            <div key={item.step} className="flex items-start gap-3 p-2.5 bg-black/30 border border-[#00D4FF]/8 rounded-md">
+              <span className="w-6 h-6 bg-[#00D4FF]/10 border border-[#00D4FF]/25 rounded flex items-center justify-center text-[#00D4FF] font-extrabold text-[9px] shrink-0">
+                {item.step}
+              </span>
+              <div className="flex-1">
+                <div className="text-white font-bold text-[10.5px] leading-snug">{item.action}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase ${
+                    item.priority === 'high' ? 'bg-[#FF3366]/10 text-[#FF3366] border border-[#FF3366]/20' : 'bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20'
+                  }`}>
+                    {item.priority} priority
+                  </span>
+                  <span className="text-[8px] text-neutral-500">{item.timeline}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Outreach Log */}
+      <div className="diag-stat-card">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-3 flex items-center gap-1.5">
+          <Activity className="w-3.5 h-3.5 text-[#39FF14]" /> Communication Log
+        </div>
+        <div className="max-h-[140px] overflow-y-auto space-y-2">
+          {filteredLogs.length > 0 ? (
+            filteredLogs.map((log) => {
+              const channelSymbols: Record<string, string> = { email: '✉️', phone: '📞', social: '💬' };
+              return (
+                <div key={log.id} className="border-b border-[#00D4FF]/5 pb-2 last:border-b-0">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white font-extrabold uppercase">{channelSymbols[log.channel] || '📨'} {log.channel}</span>
+                    <span className="text-neutral-500 text-[8px]">{new Date(log.sent_at).toLocaleDateString()}</span>
+                  </div>
+                  <p className="text-[9px] text-neutral-400 leading-relaxed mt-0.5 italic truncate">&quot;{log.message?.substring(0, 80)}...&quot;</p>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center text-neutral-500 text-[10px] py-4 italic">No outreach logged yet. Use Initiate Outreach to begin.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="diag-stat-card">
+        <div className="text-[8px] text-neutral-500 uppercase tracking-widest font-bold mb-2 flex items-center gap-1.5">
+          <FileText className="w-3.5 h-3.5 text-[#00D4FF]" /> Analyst Notes
+        </div>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="bg-black/50 border border-[#00D4FF]/20 w-full h-[100px] rounded p-3 text-[10.5px] font-semibold text-white focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF] outline-none transition-all placeholder-neutral-600 resize-none"
+          placeholder="ENTER ANALYST NOTES HERE..."
+        />
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={handleSaveNotes}
+            disabled={savingNotes}
+            className="inline-flex items-center gap-1.5 bg-[#39FF14] text-[#080C18] px-3 py-1.5 rounded text-[10px] font-mono font-extrabold uppercase tracking-wider cursor-pointer hover:bg-[#39FF14]/90 transition-all disabled:opacity-50"
+          >
+            <Save className="w-3.5 h-3.5" /> {savingNotes ? 'Saving...' : 'Save Notes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

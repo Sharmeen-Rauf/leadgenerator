@@ -369,3 +369,182 @@ input[type="range"] {
   stroke-linecap: round;
   transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* --- DIAGNOSTIC MODAL: WEIGHTED SCORING BARS --- */
+.scoring-bar-track {
+  height: 8px;
+  background: rgba(0, 212, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.scoring-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.scoring-bar-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));
+  border-radius: 0 4px 4px 0;
+}
+
+/* --- DIAGNOSTIC MODAL: TABS --- */
+.diag-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+  padding: 0 24px;
+  background: rgba(8, 12, 24, 0.6);
+}
+
+.diag-tab {
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+.diag-tab:hover {
+  color: rgba(255,255,255,0.7);
+}
+
+.diag-tab.active {
+  color: #00D4FF;
+}
+
+.diag-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00D4FF, #39FF14);
+  border-radius: 2px 2px 0 0;
+}
+
+/* --- DIAGNOSTIC MODAL: VULNERABILITY BADGES --- */
+.vuln-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.vuln-chip.critical {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.vuln-chip.warning {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.vuln-chip.info {
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  color: #00D4FF;
+}
+
+/* --- DIAGNOSTIC MODAL: FEATURE CHECKLIST --- */
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.feature-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(8, 12, 24, 0.85);
+  font-size: 11px;
+}
+
+.feature-label {
+  color: rgba(255,255,255,0.5);
+  font-weight: 600;
+}
+
+.feature-val {
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.feature-val.active { color: #39FF14; }
+.feature-val.missing { color: #FF3366; }
+.feature-val.partial { color: #FFB800; }
+.feature-val.none { color: rgba(255,255,255,0.25); }
+
+/* --- DIAGNOSTIC MODAL: AI SUMMARY BOX --- */
+.ai-summary-box {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.04) 0%, rgba(57, 255, 20, 0.04) 100%);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 10px;
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-summary-box::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #00D4FF, #39FF14);
+  border-radius: 3px 0 0 3px;
+}
+
+/* --- DIAGNOSTIC MODAL: STAT CARDS --- */
+.diag-stat-card {
+  background: rgba(8, 12, 24, 0.7);
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: all 0.3s;
+}
+
+.diag-stat-card:hover {
+  border-color: rgba(0, 212, 255, 0.25);
+}
+
+/* --- MODAL FOOTER GRADIENT --- */
+.modal-footer-gradient {
+  background: linear-gradient(180deg, transparent 0%, rgba(8, 12, 24, 0.6) 100%);
+}

@@ -10,7 +10,6 @@ import { Campaigns } from "../views/Campaigns";
 import { OutreachLog } from "../views/OutreachLog";
 import { Analytics } from "../views/Analytics";
 import { LeadModal } from "../components/leads/LeadModal";
-import { PitchModal } from "../components/leads/PitchModal";
 import { LogModal } from "../components/outreach/LogModal";
 import { useLeads, Lead } from "../hooks/useLeads";
 import { useAnalytics } from "../hooks/useAnalytics";
@@ -33,7 +32,6 @@ function CommandCenter() {
 
   // Popup Modal States
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [pitchLead, setPitchLead] = useState<Lead | null>(null);
   const [outreachLead, setOutreachLead] = useState<Lead | null>(null);
 
   // Supabase CRUD & Live Subscriptions Hooks
@@ -90,7 +88,7 @@ function CommandCenter() {
             activePage={activePage}
             updateLeadStatus={updateLeadStatus}
             onSelectLead={setSelectedLead}
-            onOpenPitch={setPitchLead}
+            onOpenPitch={setSelectedLead}
             onOpenOutreachLog={setOutreachLead}
           />
         );
@@ -142,25 +140,18 @@ function CommandCenter() {
 
       {/* POPUP MODALS SEGMENT */}
       
-      {/* 1. Lead Profile / Detail Modal */}
+      {/* 1. Unified Lead Diagnostic + AI Pitch Modal */}
       <LeadModal
         lead={selectedLead}
         isOpen={!!selectedLead}
         onClose={() => setSelectedLead(null)}
         onSaveNotes={updateLeadNotes}
         outreachLogs={outreachLogs}
-      />
-
-      {/* 2. AI Pitch Copywriter Modal */}
-      <PitchModal
-        lead={pitchLead}
-        isOpen={!!pitchLead}
-        onClose={() => setPitchLead(null)}
         onLogOutreach={logOutreach}
         updateLeadStatus={updateLeadStatus}
       />
 
-      {/* 3. Outreach Action Logger Modal */}
+      {/* 2. Outreach Action Logger Modal */}
       <LogModal
         lead={outreachLead}
         isOpen={!!outreachLead}
@@ -170,3 +161,4 @@ function CommandCenter() {
     </>
   );
 }
+
