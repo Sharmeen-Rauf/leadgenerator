@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Eye, MapPin, MessageSquare } from 'lucide-react';
+import { Star, Eye, MapPin, MessageSquare, Sparkles } from 'lucide-react';
 import { Lead } from '../../hooks/useLeads';
 import { Badge } from '../ui/Badge';
 import { getICPConfig, calculateICPScore } from '../../utils/icp';
@@ -169,6 +169,13 @@ export const LeadRow: React.FC<LeadRowProps> = ({
           className="shimmer-btn bg-neutral-900 border border-[#00D4FF]/25 hover:bg-[#00D4FF] hover:text-[#080C18] text-[#00D4FF] px-2.5 py-1 rounded text-[10px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
         >
           <Eye className="w-3 h-3" /> Analyze
+        </button>
+
+        <button
+          onClick={() => onOpenPitch(lead)}
+          className="bg-neutral-900 border border-[#7C3AED]/25 hover:bg-[#7C3AED] hover:text-white text-[#C084FC] px-2.5 py-1 rounded text-[10px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
+        >
+          <Sparkles className="w-3 h-3" /> Pitch
         </button>
 
         <button
