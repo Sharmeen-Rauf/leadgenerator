@@ -2,6 +2,7 @@ import React from 'react';
 import { Star, Eye, MapPin, MessageSquare } from 'lucide-react';
 import { Lead } from '../../hooks/useLeads';
 import { Badge } from '../ui/Badge';
+import { getICPConfig, calculateICPScore } from '../../utils/icp';
 
 interface LeadRowProps {
   lead: Lead;
@@ -20,6 +21,9 @@ export const LeadRow: React.FC<LeadRowProps> = ({
   onOpenOutreachLog,
   onUpdateStatus
 }) => {
+  const icpConfig = getICPConfig();
+  const icpMatchScore = calculateICPScore(lead, icpConfig);
+
   const ribbons = {
     new: 'bg-[#00D4FF]',
     checked: 'bg-[#FFB800]',
@@ -96,10 +100,19 @@ export const LeadRow: React.FC<LeadRowProps> = ({
         {renderSegmentedScore(lead.ai_score)}
       </div>
 
-      {/* Temperature */}
-      <div className="w-[90px] shrink-0 mt-3 lg:mt-0 font-mono">
-        <span className={`text-[8px] px-2 py-0.5 rounded font-extrabold uppercase tracking-widest ${tempGlows[lead.opportunity_temp] || 'bg-neutral-800 text-white'}`}>
+      {/* Temperature & ICP Fit */}
+      <div className="w-[95px] shrink-0 mt-3 lg:mt-0 font-mono flex flex-col gap-1.5 justify-center">
+        <span className={`text-[8px] px-2 py-0.5 rounded font-extrabold uppercase tracking-widest text-center ${tempGlows[lead.opportunity_temp] || 'bg-neutral-800 text-white'}`}>
           {lead.opportunity_temp}
+        </span>
+        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold text-center border ${
+          icpMatchScore >= 80 
+            ? 'bg-[#39FF14]/10 text-[#39FF14] border-[#39FF14]/30 shadow-[0_0_6px_rgba(57,255,20,0.06)]' 
+            : icpMatchScore >= 60 
+              ? 'bg-[#FFB800]/10 text-[#FFB800] border-[#FFB800]/30 shadow-[0_0_6px_rgba(255,184,0,0.06)]' 
+              : 'bg-neutral-800/40 text-neutral-500 border-neutral-700/40'
+        }`}>
+          🎯 {icpMatchScore}% ICP FIT
         </span>
       </div>
 

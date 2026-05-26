@@ -7,6 +7,7 @@ import { Lead } from '../../hooks/useLeads';
 import { LeadRow } from './LeadRow';
 import { Skeleton } from '../ui/Skeleton';
 import { Button } from '../ui/Button';
+import { getICPConfig, calculateICPScore } from '../../utils/icp';
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -33,7 +34,7 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
   const [scoreRange, setScoreRange] = useState<number>(0);
   const [tempFilter, setTempFilter] = useState<string>('all');
   const [selectedGaps, setSelectedGaps] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'score' | 'date' | 'loss'>('score');
+  const [sortBy, setSortBy] = useState<'score' | 'date' | 'loss' | 'icp'>('icp');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [pageSize, setPageSize] = useState<number>(20);
 
@@ -67,6 +68,7 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
   // Filter & Sort logic
   const filteredLeads = useMemo(() => {
     let result = [...leads];
+    const icpConfig = getICPConfig();
 
     // Stage / Status Filter
     if (currentStageFilter !== 'all') {
@@ -108,6 +110,9 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
       if (sortBy === 'score') {
         valA = a.ai_score;
         valB = b.ai_score;
+      } else if (sortBy === 'icp') {
+        valA = calculateICPScore(a, icpConfig);
+        valB = calculateICPScore(b, icpConfig);
       } else if (sortBy === 'date') {
         valA = new Date(a.created_at).getTime();
         valB = new Date(b.created_at).getTime();
@@ -295,7 +300,7 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-[9px] text-neutral-500 font-extrabold uppercase tracking-widest">Sort Parameters</span>
             <div className="flex bg-neutral-950 p-0.5 rounded border border-[#00D4FF]/10">
-              {(['score', 'date', 'loss'] as const).map((param) => (
+              {(['icp', 'score', 'date', 'loss'] as const).map((param) => (
                 <button
                   key={param}
                   onClick={() => setSortBy(param)}
@@ -305,7 +310,7 @@ export const LeadsTable: React.FC<LeadsTableProps> = ({
                       : 'text-neutral-500 hover:text-white border border-transparent'
                   }`}
                 >
-                  {param === 'score' ? 'AI Score' : param === 'date' ? 'Date Added' : 'Est Loss'}
+                  {param === 'icp' ? '🎯 ICP Match' : param === 'score' ? 'AI Score' : param === 'date' ? 'Date Added' : 'Est Loss'}
                 </button>
               ))}
             </div>

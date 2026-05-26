@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Database, RefreshCw, AlertTriangle, ShieldCheck, 
-  Copy, Check, FileText, Globe, Key 
+  Copy, Check, FileText, Globe, Key, Sliders, Target, CheckSquare, Square 
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
+import { getICPConfig, saveICPConfig, ICPConfig } from '../utils/icp';
 
 interface AnalyticsProps {
   onRefreshAll: () => Promise<void>;
@@ -15,6 +16,28 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onRefreshAll }) => {
   const [seeding, setSeeding] = useState(false);
   const [copied, setCopied] = useState(false);
   const { showToast } = useToast();
+
+  const [icp, setIcp] = useState<ICPConfig>({
+    niche: 'any',
+    location: 'any',
+    minRating: 0,
+    minReviews: 0,
+    requireEmail: true,
+    requirePhone: false,
+    requireWebsite: true,
+  });
+
+  useEffect(() => {
+    setIcp(getICPConfig());
+  }, []);
+
+  const handleUpdateICP = (key: keyof ICPConfig, val: any) => {
+    const updated = { ...icp, [key]: val };
+    setIcp(updated);
+    saveICPConfig(updated);
+    showToast("ICP target rules updated successfully", "success");
+    onRefreshAll();
+  };
 
   const SQL_SCHEMA = `-- PitchRadar Supabase SQL DDL Schema Setup
 -- Copy and paste this directly into your Supabase SQL Editor:
@@ -316,6 +339,101 @@ ALTER TABLE analytics_snapshots DISABLE ROW LEVEL SECURITY;
 
   return (
     <div className="space-y-6">
+      {/* ICP Target Matching Curation */}
+      <div className="tactical-glass p-5 border-[#00D4FF]/15 font-mono select-none space-y-4">
+        <div className="flex items-center gap-2 border-b border-[#00D4FF]/10 pb-3">
+          <Target className="w-4.5 h-4.5 text-[#39FF14]" />
+          <div>
+            <h3 className="text-xs font-extrabold text-white font-['Syne'] uppercase tracking-wider">Ideal Customer Profile (ICP) Target Curation</h3>
+            <p className="text-[9px] text-neutral-500 mt-0.5 uppercase tracking-widest">Configure your target filters to calculate lead scores and display the best prospects first</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Target Niche */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest">Target Niche</label>
+            <input
+              type="text"
+              className="bg-black/60 border border-[#00D4FF]/20 rounded px-3 py-1.5 text-xs outline-none text-white focus:border-[#39FF14] transition-all uppercase"
+              placeholder="e.g. DENTISTS, ROOFERS, PHOTO BOOTH..."
+              value={icp.niche}
+              onChange={(e) => handleUpdateICP('niche', e.target.value)}
+            />
+          </div>
+
+          {/* Target Location */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest">Target Location</label>
+            <input
+              type="text"
+              className="bg-black/60 border border-[#00D4FF]/20 rounded px-3 py-1.5 text-xs outline-none text-white focus:border-[#39FF14] transition-all uppercase"
+              placeholder="e.g. CHICAGO, BOSTON..."
+              value={icp.location}
+              onChange={(e) => handleUpdateICP('location', e.target.value)}
+            />
+          </div>
+
+          {/* Min Rating */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest">Min Reputation Rating</label>
+            <select
+              className="bg-black/60 border border-[#00D4FF]/20 rounded px-3 py-1.5 text-xs outline-none text-neutral-350 focus:border-[#39FF14] transition-all cursor-pointer uppercase font-bold"
+              value={icp.minRating}
+              onChange={(e) => handleUpdateICP('minRating', parseFloat(e.target.value))}
+            >
+              <option value="0">ANY RATING</option>
+              <option value="3.5">3.5+ STARS</option>
+              <option value="4.0">4.0+ STARS</option>
+              <option value="4.5">4.5+ STARS</option>
+            </select>
+          </div>
+
+          {/* Min Review Count */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest">Min Reviews Count</label>
+            <select
+              className="bg-black/60 border border-[#00D4FF]/20 rounded px-3 py-1.5 text-xs outline-none text-neutral-350 focus:border-[#39FF14] transition-all cursor-pointer uppercase font-bold"
+              value={icp.minReviews}
+              onChange={(e) => handleUpdateICP('minReviews', parseInt(e.target.value))}
+            >
+              <option value="0">ANY COUNT</option>
+              <option value="10">10+ REVIEWS</option>
+              <option value="30">30+ REVIEWS</option>
+              <option value="50">50+ REVIEWS</option>
+              <option value="100">100+ REVIEWS</option>
+            </select>
+          </div>
+
+          {/* Require Email & Phone checkboxes */}
+          <div className="lg:col-span-2 flex items-center justify-between gap-4 bg-black/40 border border-[#00D4FF]/10 rounded p-3 select-none">
+            <button
+              onClick={() => handleUpdateICP('requireEmail', !icp.requireEmail)}
+              className="flex items-center gap-2 text-[10px] font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              {icp.requireEmail ? <CheckSquare className="w-4 h-4 text-[#39FF14]" /> : <Square className="w-4 h-4 text-neutral-600" />}
+              <span>REQ EMAIL</span>
+            </button>
+
+            <button
+              onClick={() => handleUpdateICP('requirePhone', !icp.requirePhone)}
+              className="flex items-center gap-2 text-[10px] font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              {icp.requirePhone ? <CheckSquare className="w-4 h-4 text-[#39FF14]" /> : <Square className="w-4 h-4 text-neutral-600" />}
+              <span>REQ PHONE</span>
+            </button>
+
+            <button
+              onClick={() => handleUpdateICP('requireWebsite', !icp.requireWebsite)}
+              className="flex items-center gap-2 text-[10px] font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              {icp.requireWebsite ? <CheckSquare className="w-4 h-4 text-[#39FF14]" /> : <Square className="w-4 h-4 text-neutral-600" />}
+              <span>REQ WEBSITE</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Settings Header */}
       <div className="select-none font-mono">
         <h2 className="text-sm font-extrabold text-white font-['Syne'] uppercase tracking-wider">System Control & Database Diagnostics</h2>

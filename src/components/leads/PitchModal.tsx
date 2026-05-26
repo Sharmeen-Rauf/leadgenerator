@@ -25,20 +25,20 @@ export const PitchModal: React.FC<PitchModalProps> = ({
   onLogOutreach,
   updateLeadStatus
 }) => {
-  const [template, setTemplate] = useState<'seo' | 'redesign' | 'ads'>('seo');
+  const [template, setTemplate] = useState<'seo' | 'redesign' | 'ads' | 'outbound'>('seo');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const { showToast } = useToast();
-
+ 
   const templates = useMemo(() => {
-    if (!lead) return { seo: { s: '', b: '' }, redesign: { s: '', b: '' }, ads: { s: '', b: '' } };
-
+    if (!lead) return { seo: { s: '', b: '' }, redesign: { s: '', b: '' }, ads: { s: '', b: '' }, outbound: { s: '', b: '' } };
+ 
     const gapsString = lead.gaps && lead.gaps.length > 0 
       ? lead.gaps.join(', ') 
       : 'SEO optimization and speed updates';
-
+ 
     return {
       seo: {
         s: `Critical SEO Gaps Detected on ${lead.company_name}`,
@@ -51,6 +51,10 @@ export const PitchModal: React.FC<PitchModalProps> = ({
       ads: {
         s: `Unlocking New Traffic for ${lead.company_name}`,
         b: `Hello,\n\nI noticed that ${lead.company_name} has a strong reputation in ${lead.location} with ${lead.review_count || 0} positive reviews. However, our ad trackers show you don't have active retargeting pixels installed.\n\nThis means you're paying to drive traffic to your site, but letting 98% of those prospects leave without showing them follow-up ads on Google or Facebook.\n\nWe build custom high-ROI ad campaigns tailored for ${lead.niche}. Let me know if you have time for a brief chat to see how we can set this up for you.\n\nRegards,\n[Your Name]`
+      },
+      outbound: {
+        s: `Growth Partnership Proposal: Qualified Meetings for ${lead.company_name}`,
+        b: `Hi Team at ${lead.company_name},\n\nI came across your business online. I noticed you offer premium ${lead.niche} services, but you might be relying solely on word-of-mouth or referral traffic to grow your client list.\n\nWe specialize in setting up automated B2B outbound engines (cold email + LinkedIn sequences) to book 10-15 qualified sales meetings per month for agencies in your space.\n\nWe noticed a few gaps in your website's marketing stack that indicate you aren't currently running outbound campaigns. Would you be open to a brief 5-minute chat to see how we can book qualified calls for your sales reps on a pay-per-meeting basis?\n\nBest regards,\n[Your Name]`
       }
     };
   }, [lead]);
@@ -102,20 +106,21 @@ export const PitchModal: React.FC<PitchModalProps> = ({
         {/* Template Selector Tabs */}
         <div className="space-y-1.5">
           <label className="text-[9px] text-neutral-450 font-extrabold uppercase tracking-widest">Select AI Angle Template</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(['seo', 'redesign', 'ads'] as const).map((t) => {
+          <div className="grid grid-cols-4 gap-2">
+            {(['seo', 'redesign', 'ads', 'outbound'] as const).map((t) => {
               const active = template === t;
               const labels = {
                 seo: 'SEO Audit',
-                redesign: 'Redesign Red',
-                ads: 'Traffic Ads'
+                redesign: 'Redesign Web',
+                ads: 'Traffic Ads',
+                outbound: 'Outbound SDR'
               };
               return (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTemplate(t)}
-                  className={`py-2 border rounded font-bold cursor-pointer transition-all duration-300 text-center ${
+                  className={`py-2 border rounded font-bold cursor-pointer transition-all duration-300 text-[9px] text-center ${
                     active
                       ? 'bg-[#00D4FF]/10 border-[#00D4FF]/50 text-[#00D4FF] shadow-[0_0_8px_rgba(0,212,255,0.1)]'
                       : 'border-neutral-800 text-neutral-500 hover:text-white hover:bg-white/5'
