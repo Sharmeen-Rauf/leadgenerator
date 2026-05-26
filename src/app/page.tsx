@@ -32,6 +32,7 @@ function CommandCenter() {
 
   // Popup Modal States
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [leadModalTab, setLeadModalTab] = useState<'diagnostic' | 'pitch'>('diagnostic');
   const [outreachLead, setOutreachLead] = useState<Lead | null>(null);
 
   // Supabase CRUD & Live Subscriptions Hooks
@@ -72,7 +73,7 @@ function CommandCenter() {
             leads={leads}
             outreachLogs={outreachLogs}
             snapshots={snapshots}
-            onSelectLead={setSelectedLead}
+            onSelectLead={(l) => { setSelectedLead(l); setLeadModalTab('diagnostic'); }}
           />
         );
       case "leads":
@@ -88,8 +89,8 @@ function CommandCenter() {
             loading={leadsLoading}
             activePage={activePage}
             updateLeadStatus={updateLeadStatus}
-            onSelectLead={setSelectedLead}
-            onOpenPitch={setSelectedLead}
+            onSelectLead={(l) => { setSelectedLead(l); setLeadModalTab('diagnostic'); }}
+            onOpenPitch={(l) => { setSelectedLead(l); setLeadModalTab('pitch'); }}
             onOpenOutreachLog={setOutreachLead}
           />
         );
@@ -151,6 +152,7 @@ function CommandCenter() {
         onLogOutreach={logOutreach}
         updateLeadStatus={updateLeadStatus}
         onEnrich={enrichLead}
+        initialTab={leadModalTab}
       />
 
       {/* 2. Outreach Action Logger Modal */}

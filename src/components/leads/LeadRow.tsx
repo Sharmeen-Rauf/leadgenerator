@@ -153,7 +153,11 @@ export const LeadRow: React.FC<LeadRowProps> = ({
       >
         <select
           value={lead.crm_status}
-          onChange={(e) => onUpdateStatus(lead.id, e.target.value as Lead['crm_status'])}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            onUpdateStatus(lead.id, e.target.value as Lead['crm_status']);
+          }}
           className="bg-neutral-900 border border-[#00D4FF]/25 text-[#00D4FF] hover:border-[#00D4FF]/50 text-[10px] font-mono font-extrabold rounded px-2 py-1 outline-none cursor-pointer uppercase transition-colors"
         >
           <option value="new">🆕 NEW</option>
@@ -165,21 +169,30 @@ export const LeadRow: React.FC<LeadRowProps> = ({
         </select>
 
         <button
-          onClick={() => onSelect(lead)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(lead);
+          }}
           className="shimmer-btn bg-neutral-900 border border-[#00D4FF]/25 hover:bg-[#00D4FF] hover:text-[#080C18] text-[#00D4FF] px-2.5 py-1 rounded text-[10px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
         >
           <Eye className="w-3 h-3" /> Analyze
         </button>
 
         <button
-          onClick={() => onOpenPitch(lead)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenPitch(lead);
+          }}
           className="bg-neutral-900 border border-[#7C3AED]/25 hover:bg-[#7C3AED] hover:text-white text-[#C084FC] px-2.5 py-1 rounded text-[10px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
         >
           <Sparkles className="w-3 h-3" /> Pitch
         </button>
 
         <button
-          onClick={() => onOpenOutreachLog(lead)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenOutreachLog(lead);
+          }}
           className="bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white px-2.5 py-1 rounded text-[10px] font-mono font-extrabold uppercase transition-all flex items-center gap-1 cursor-pointer"
         >
           <MessageSquare className="w-3 h-3" /> Log

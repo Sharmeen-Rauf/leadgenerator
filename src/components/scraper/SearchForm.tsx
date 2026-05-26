@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { getICPConfig } from '../../utils/icp';
 
 interface SearchFormProps {
   onSearch: (niche: string, location: string, limit: number) => void;
@@ -11,6 +12,16 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, loading }) => 
   const [niche, setNiche] = useState('');
   const [location, setLocation] = useState('');
   const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    const config = getICPConfig();
+    if (config.niche && config.niche.toLowerCase() !== 'any') {
+      setNiche(config.niche);
+    }
+    if (config.location && config.location.toLowerCase() !== 'any') {
+      setLocation(config.location);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

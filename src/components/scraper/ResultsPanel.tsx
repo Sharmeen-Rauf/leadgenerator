@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
+import { getICPConfig, calculateICPScore } from '../../utils/icp';
 
 interface ScrapedLead {
   company_name: string;
@@ -33,7 +34,7 @@ interface ScrapedLead {
 
 interface ResultsPanelProps {
   results: ScrapedLead[];
-  onCommit: () => void;
+  onCommit: (leadsToCommit: any[]) => void;
   committing: boolean;
 }
 
@@ -47,7 +48,24 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [copied, setCopied] = useState(false);
+  const [onlyHighFit, setOnlyHighFit] = useState(false);
   const { showToast } = useToast();
+
+  const icpConfig = useMemo(() => getICPConfig(), []);
+
+  const processedResults = useMemo(() => {
+    const mapped = results.map(r => ({
+      ...r,
+      icpScore: calculateICPScore(r as any, icpConfig)
+    }));
+
+    mapped.sort((a, b) => b.icpScore - a.icpScore);
+
+    if (onlyHighFit) {
+      return mapped.filter(r => r.icpScore >= 70);
+    }
+    return mapped;
+  }, [results, icpConfig, onlyHighFit]);
 
   const tempGlows = {
     cold: 'bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/30 shadow-[0_0_8px_rgba(0,212,255,0.15)]',
@@ -123,13 +141,31 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
 
   return (
     <div className="tactical-glass p-5 border-[#00D4FF]/15 space-y-4 select-none font-mono">
-      <div className="flex justify-between items-center border-b border-[#00D4FF]/10 pb-3">
-        <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-[#39FF14]" />
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Scrape Ingestion Buffer ({results.length} Nodes Found)</h3>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#00D4FF]/10 pb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#39FF14]" />
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Scrape Ingestion Buffer ({processedResults.length} Nodes)</h3>
+          </div>
+          <button
+            onClick={() => setOnlyHighFit(prev => !prev)}
+            className={`px-2.5 py-1 rounded text-[9px] font-extrabold uppercase tracking-wider transition-all border cursor-pointer flex items-center gap-1.5 font-mono ${
+              onlyHighFit
+                ? 'bg-[#39FF14]/15 border-[#39FF14] text-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.15)]'
+                : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-white'
+            }`}
+          >
+            🎯 Only Best Leads (≥70% ICP Fit)
+          </button>
         </div>
-        <Button variant="green" size="sm" onClick={onCommit} loading={committing}>
-          <Database className="w-3.5 h-3.5" /> Commit Ingested Logs to Supabase
+        <Button 
+          variant="green" 
+          size="sm" 
+          onClick={() => onCommit(processedResults)} 
+          loading={committing}
+          disabled={processedResults.length === 0}
+        >
+          <Database className="w-3.5 h-3.5" /> Commit {processedResults.length} Ingested Logs to Supabase
         </Button>
       </div>
 
@@ -141,6 +177,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
               <th className="py-2 px-4">City</th>
               <th className="py-2 px-4 text-center">Rating</th>
               <th className="py-2 px-4 text-center">AI Rating</th>
+              <th className="py-2 px-4 text-center">ICP Fit</th>
               <th className="py-2 px-4 text-center">Temp</th>
               <th className="py-2 px-4 text-center">SEO</th>
               <th className="py-2 px-4">Gaps Detected</th>
@@ -151,7 +188,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#00D4FF]/5 text-neutral-300 font-semibold">
-            {results.map((r, idx) => (
+            {processedResults.map((r, idx) => (
               <tr key={idx} className="hover:bg-white/5 transition-colors">
                 <td className="py-2.5 pr-4">
                   <div className="font-extrabold text-white uppercase">{r.company_name}</div>
@@ -166,6 +203,17 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
                 </td>
                 <td className="py-2.5 px-4 text-center">
                   {renderSegmentedScore(r.ai_score)}
+                </td>
+                <td className="py-2.5 px-4 text-center font-mono">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold border ${
+                    r.icpScore >= 80 
+                      ? 'bg-[#39FF14]/10 text-[#39FF14] border-[#39FF14]/30 shadow-[0_0_6px_rgba(57,255,20,0.06)]' 
+                      : r.icpScore >= 60 
+                        ? 'bg-[#FFB800]/10 text-[#FFB800] border-[#FFB800]/30 shadow-[0_0_6px_rgba(255,184,0,0.06)]' 
+                        : 'bg-neutral-800/40 text-neutral-500 border-neutral-700/40'
+                  }`}>
+                    🎯 {r.icpScore}%
+                  </span>
                 </td>
                 <td className="py-2.5 px-4 text-center">
                   <span className={`text-[8px] px-2 py-0.5 rounded font-extrabold uppercase tracking-widest ${tempGlows[r.opportunity_temp] || 'bg-neutral-800 text-white'}`}>
@@ -304,8 +352,17 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
                 <Button type="button" variant="ghost" onClick={() => setSelectedPitchLead(null)}>
                   Close
                 </Button>
-                <Button type="button" variant="green" onClick={onCommit}>
-                  Commit & Ingest Log
+                <Button 
+                  type="button" 
+                  variant="green" 
+                  onClick={() => {
+                    if (selectedPitchLead) {
+                      onCommit([selectedPitchLead]);
+                      setSelectedPitchLead(null);
+                    }
+                  }}
+                >
+                  Commit & Ingest Lead
                 </Button>
               </div>
             </div>

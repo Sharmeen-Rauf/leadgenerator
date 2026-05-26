@@ -110,16 +110,23 @@ export const LeadScraper: React.FC<LeadScraperProps> = ({
     }
   };
 
-  const handleCommit = async () => {
-    if (scrapedResults.length === 0) return;
+  const handleCommit = async (leadsToCommit: any[] = scrapedResults) => {
+    if (!leadsToCommit || leadsToCommit.length === 0) return;
     setCommitting(true);
 
     try {
-      const res = await onAddLeads(scrapedResults);
+      const res = await onAddLeads(leadsToCommit);
       if (res) {
-        setScrapedResults([]);
-        // Redirect to leads page
-        setActivePage('leads');
+        if (leadsToCommit.length === scrapedResults.length) {
+          setScrapedResults([]);
+          // Redirect to leads page
+          setActivePage('leads');
+        } else {
+          setScrapedResults(prev => 
+            prev.filter(item => !leadsToCommit.some(l => l.company_name === item.company_name))
+          );
+          showToast(`Ingested ${leadsToCommit.length} lead(s) successfully.`, 'success');
+        }
       }
     } catch (err: any) {
       console.error(err);
