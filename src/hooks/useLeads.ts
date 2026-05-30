@@ -145,13 +145,44 @@ export function useLeads() {
 
   const addLeads = useCallback(async (newLeadsList: Omit<Lead, 'id' | 'created_at' | 'updated_at'>[]) => {
     try {
-      const { data, error: sbError } = await supabase
-        .from('leads')
-        .insert(newLeadsList.map(l => ({
-          ...l,
+      // Map to only include fields that exist in the database schema to avoid 
+      // PostgREST errors for client-side extra fields (like icpScore or mx_verified)
+      const sanitizedLeads = newLeadsList.map(l => {
+        const clean: any = {
+          company_name: l.company_name || 'Unknown Business',
+          niche: l.niche || 'N/A',
+          location: l.location || 'N/A',
+          rating: Number(l.rating) || 0,
+          review_count: Number(l.review_count) || 0,
+          phone: l.phone || 'N/A',
+          email: l.email || 'N/A',
+          website: l.website || 'N/A',
+          ai_score: Number(l.ai_score) || 0,
+          opportunity_temp: l.opportunity_temp || 'cold',
+          gaps: l.gaps || [],
+          est_revenue_loss: Number(l.est_revenue_loss) || 0,
+          deal_value_min: Number(l.deal_value_min) || 0,
+          deal_value_max: Number(l.deal_value_max) || 0,
+          platform: l.platform || 'N/A',
+          site_speed: l.site_speed || 'N/A',
+          ssl_status: l.ssl_status || 'N/A',
+          seo_score: Number(l.seo_score) || 0,
+          vulnerabilities: l.vulnerabilities || [],
+          crm_status: l.crm_status || 'new',
+          notes: l.notes || '',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        })))
+        };
+
+        if (l.source_query !== undefined) clean.source_query = l.source_query;
+        if (l.service_pitched !== undefined) clean.service_pitched = l.service_pitched;
+
+        return clean;
+      });
+
+      const { data, error: sbError } = await supabase
+        .from('leads')
+        .insert(sanitizedLeads)
         .select();
 
       if (sbError) throw sbError;
