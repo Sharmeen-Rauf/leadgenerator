@@ -5,6 +5,8 @@
 // Uses Google Custom Search JSON API → analyzes each site → streams results
 // =============================================================================
 
+import { ApifyClient } from 'apify-client';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface BulkScrapeRequest {
@@ -500,6 +502,48 @@ async function googleSearch(
   return results.slice(0, maxResults);
 }
 
+// ─── Apify Google Search (Uses existing APIFY_API_TOKEN) ──────────────────────
+
+async function apifyGoogleSearch(
+  keyword: string,
+  country: string,
+  maxResults: number,
+  token: string
+): Promise<GoogleSearchItem[]> {
+  try {
+    const client = new ApifyClient({ token });
+    const maxPages = Math.max(1, Math.ceil(maxResults / 10));
+    
+    console.log(`Launching Apify google-search-scraper actor for query: "${keyword} in ${country}"...`);
+    const run = await client.actor('apify/google-search-scraper').call({
+      queries: `${keyword} in ${country}`,
+      maxPagesPerQuery: maxPages,
+      resultsPerPage: 10,
+      countryCode: country.toLowerCase()
+    });
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    
+    const results: GoogleSearchItem[] = [];
+    for (const item of items) {
+      if (item.organicResults && Array.isArray(item.organicResults)) {
+        for (const res of item.organicResults) {
+          results.push({
+            title: res.title || '',
+            link: res.url || res.link || '',
+            snippet: res.description || res.snippet || ''
+          });
+        }
+      }
+    }
+    
+    return results;
+  } catch (err) {
+    console.error('Apify Google Search Actor failed:', err);
+    return [];
+  }
+}
+
 // ─── DuckDuckGo Search Fallback (Free, No Keys Required) ─────────────────────
 
 async function duckDuckGoSearch(
@@ -725,9 +769,19 @@ export async function POST(req: Request) {
     async start(controller) {
       try {
         let searchItems: GoogleSearchItem[] = [];
+        const APIFY_API_TOKEN = process.env.APIFY_API_TOKEN;
 
-        // 1. Try Google Custom Search first if keys are configured
-        if (GOOGLE_CSE_KEY && GOOGLE_CSE_ID) {
+        // 1. Try Apify Google Search Scraper first (Highly reliable, bypasses cloud blocks)
+        if (APIFY_API_TOKEN) {
+          try {
+            searchItems = await apifyGoogleSearch(keyword.trim(), country.trim(), maxResults, APIFY_API_TOKEN);
+          } catch (err) {
+            console.error('Apify search failed:', err);
+          }
+        }
+
+        // 2. Try Google Custom Search as fallback 1 if keys are configured and Apify returned 0
+        if (searchItems.length === 0 && GOOGLE_CSE_KEY && GOOGLE_CSE_ID) {
           try {
             searchItems = await googleSearch(keyword.trim(), country.trim(), maxResults, GOOGLE_CSE_KEY, GOOGLE_CSE_ID);
           } catch (err) {
@@ -735,7 +789,7 @@ export async function POST(req: Request) {
           }
         }
 
-        // 2. Fallback to DuckDuckGo search if Google fails, returns 0, or keys are missing
+        // 3. Fallback to DuckDuckGo search if everything else fails
         if (searchItems.length === 0) {
           console.log('Falling back to DuckDuckGo search...');
           searchItems = await duckDuckGoSearch(keyword.trim(), country.trim(), maxResults);
