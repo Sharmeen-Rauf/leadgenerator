@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { SearchForm } from '../components/scraper/SearchForm';
 import { ProgressBar } from '../components/scraper/ProgressBar';
 import { ResultsPanel } from '../components/scraper/ResultsPanel';
+import { BulkScraper } from '../components/scraper/BulkScraper';
 import { useToast } from '../components/ui/Toast';
 import { Lead } from '../hooks/useLeads';
+import { Search, Globe, Zap } from 'lucide-react';
 
 interface LeadScraperProps {
   onAddLeads: (leads: Omit<Lead, 'id' | 'created_at' | 'updated_at'>[]) => Promise<any>;
@@ -14,6 +16,7 @@ export const LeadScraper: React.FC<LeadScraperProps> = ({
   onAddLeads,
   setActivePage
 }) => {
+  const [mode, setMode] = useState<'places' | 'bulk'>('places');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('System Idle');
@@ -138,20 +141,57 @@ export const LeadScraper: React.FC<LeadScraperProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Search Query Console */}
-      <SearchForm onSearch={handleRunScan} loading={loading} />
+      {/* Mode Toggle Tabs */}
+      <div className="tactical-glass p-1.5 border-[#00D4FF]/15 flex gap-1 select-none">
+        <button
+          onClick={() => setMode('places')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded text-[10px] font-mono font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer border ${
+            mode === 'places'
+              ? 'bg-[#00D4FF]/10 border-[#00D4FF]/40 text-[#00D4FF] shadow-[0_0_12px_rgba(0,212,255,0.15)]'
+              : 'border-transparent text-neutral-500 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Search className="w-3.5 h-3.5" />
+          Google Places Scanner
+        </button>
+        <button
+          onClick={() => setMode('bulk')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded text-[10px] font-mono font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer border ${
+            mode === 'bulk'
+              ? 'bg-[#39FF14]/10 border-[#39FF14]/40 text-[#39FF14] shadow-[0_0_12px_rgba(57,255,20,0.15)]'
+              : 'border-transparent text-neutral-500 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          Bulk Web Scraper
+          <span className="bg-[#39FF14]/20 text-[#39FF14] text-[7px] px-1.5 py-0.5 rounded font-extrabold border border-[#39FF14]/30">FREE</span>
+        </button>
+      </div>
 
-      {/* Ingestion progress bar */}
-      {(loading || progress > 0) && scrapedResults.length === 0 && (
-        <ProgressBar progress={progress} statusText={statusText} />
+      {/* Google Places Mode (Existing) */}
+      {mode === 'places' && (
+        <>
+          <SearchForm onSearch={handleRunScan} loading={loading} />
+
+          {(loading || progress > 0) && scrapedResults.length === 0 && (
+            <ProgressBar progress={progress} statusText={statusText} />
+          )}
+
+          {scrapedResults.length > 0 && (
+            <ResultsPanel 
+              results={scrapedResults} 
+              onCommit={handleCommit} 
+              committing={committing} 
+            />
+          )}
+        </>
       )}
 
-      {/* Buffering results table */}
-      {scrapedResults.length > 0 && (
-        <ResultsPanel 
-          results={scrapedResults} 
-          onCommit={handleCommit} 
-          committing={committing} 
+      {/* Bulk Web Scraper Mode (New) */}
+      {mode === 'bulk' && (
+        <BulkScraper
+          onAddLeads={onAddLeads}
+          setActivePage={setActivePage}
         />
       )}
     </div>

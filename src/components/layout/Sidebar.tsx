@@ -61,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       section: 'OUTREACH',
       items: [
         { id: 'campaigns', label: 'Campaigns', icon: <Send className="w-4 h-4" /> },
+        { id: 'sequences', label: 'Sequences', icon: <Activity className="w-4 h-4" /> },
         { id: 'outreach-log', label: 'Outreach Log', icon: <Mail className="w-4 h-4" /> }
       ]
     },

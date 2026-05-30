@@ -8,6 +8,7 @@ import { AllLeads } from "../views/AllLeads";
 import { LeadScraper } from "../views/LeadScraper";
 import { Campaigns } from "../views/Campaigns";
 import { OutreachLog } from "../views/OutreachLog";
+import { Sequences } from "../views/Sequences";
 import { Analytics } from "../views/Analytics";
 import { LeadModal } from "../components/leads/LeadModal";
 import { LogModal } from "../components/outreach/LogModal";
@@ -109,6 +110,8 @@ function CommandCenter() {
         );
       case "campaigns":
         return <Campaigns leads={leads} />;
+      case "sequences":
+        return <Sequences leads={leads} />;
       case "outreach-log": // Match the ID used in Sidebar.tsx menuItems
         return (
           <OutreachLog 
