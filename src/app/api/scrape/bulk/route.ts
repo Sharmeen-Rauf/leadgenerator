@@ -500,6 +500,79 @@ async function googleSearch(
   return results.slice(0, maxResults);
 }
 
+// ─── DuckDuckGo Search Fallback (Free, No Keys Required) ─────────────────────
+
+async function duckDuckGoSearch(
+  keyword: string,
+  country: string,
+  maxResults: number
+): Promise<GoogleSearchItem[]> {
+  const query = `${keyword} in ${country}`;
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+    
+    if (!res.ok) {
+      console.error(`DuckDuckGo Search failed: HTTP ${res.status}`);
+      return [];
+    }
+    
+    const html = await res.text();
+    const items: GoogleSearchItem[] = [];
+    
+    const hrefRegex = /href="(\/\/duckduckgo\.com\/l\/\?uddg=[^"]+)"/gi;
+    let match;
+    while ((match = hrefRegex.exec(html)) !== null) {
+      try {
+        const rawUrl = 'https:' + match[1].replace(/&amp;/g, '&');
+        const urlObj = new URL(rawUrl);
+        const target = urlObj.searchParams.get('uddg');
+        if (target) {
+          const lower = target.toLowerCase();
+          const skip = [
+            'yelp.com', 'tripadvisor.com', 'foursquare.com', 'angi.com', 
+            'yellowpages.com', 'linkedin.com', 'facebook.com', 'twitter.com', 
+            'instagram.com', 'youtube.com', 'wikipedia.org', 'groupon.com', 
+            'mapquest.com', 'thumbtack.com'
+          ];
+          if (!skip.some(s => lower.includes(s))) {
+            items.push({
+              link: target,
+              title: extractDomain(target),
+              snippet: ''
+            });
+          }
+        }
+      } catch {
+        // skip
+      }
+    }
+    
+    // De-duplicate items by domain
+    const seen = new Set<string>();
+    const uniqueItems: GoogleSearchItem[] = [];
+    for (const item of items) {
+      if (!item.link) continue;
+      const domain = extractDomain(item.link);
+      if (!seen.has(domain)) {
+        seen.add(domain);
+        uniqueItems.push(item);
+      }
+    }
+    
+    return uniqueItems.slice(0, maxResults);
+  } catch (err) {
+    console.error('DuckDuckGo Search failed:', err);
+    return [];
+  }
+}
+
 // ─── Process a single search result into a lead ──────────────────────────────
 
 async function processSearchResult(
@@ -612,18 +685,9 @@ async function processSearchResult(
 // ========== MAIN POST HANDLER — SSE STREAMING ==========
 
 export async function POST(req: Request) {
-  // Validate environment
-  const GOOGLE_CSE_KEY = process.env.GOOGLE_CSE_KEY;
-  const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID;
-
-  if (!GOOGLE_CSE_KEY || !GOOGLE_CSE_ID) {
-    return new Response(
-      JSON.stringify({
-        error: 'Google Custom Search API not configured. Set GOOGLE_CSE_KEY and GOOGLE_CSE_ID environment variables. Get them at https://programmablesearchengine.google.com/',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+  // Optional environment variables. If missing or failing, we fall back to DuckDuckGo search.
+  const GOOGLE_CSE_KEY = process.env.GOOGLE_CSE_KEY || '';
+  const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID || '';
 
   // Parse & validate request body
   let body: BulkScrapeRequest;
@@ -660,8 +724,22 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // 1. Run Google Custom Search
-        const searchItems = await googleSearch(keyword.trim(), country.trim(), maxResults, GOOGLE_CSE_KEY, GOOGLE_CSE_ID);
+        let searchItems: GoogleSearchItem[] = [];
+
+        // 1. Try Google Custom Search first if keys are configured
+        if (GOOGLE_CSE_KEY && GOOGLE_CSE_ID) {
+          try {
+            searchItems = await googleSearch(keyword.trim(), country.trim(), maxResults, GOOGLE_CSE_KEY, GOOGLE_CSE_ID);
+          } catch (err) {
+            console.error('Google Search API failed:', err);
+          }
+        }
+
+        // 2. Fallback to DuckDuckGo search if Google fails, returns 0, or keys are missing
+        if (searchItems.length === 0) {
+          console.log('Falling back to DuckDuckGo search...');
+          searchItems = await duckDuckGoSearch(keyword.trim(), country.trim(), maxResults);
+        }
 
         if (searchItems.length === 0) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'No search results found. Try broader keywords.' })}\n\n`));
