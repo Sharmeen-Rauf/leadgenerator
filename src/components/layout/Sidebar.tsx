@@ -43,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       section: 'CORE',
       items: [
         { id: 'scraper', label: 'Lead Scraper', icon: <Search className="w-4 h-4" /> },
+        { id: 'finder', label: 'Find Decision Makers', icon: <Users className="w-4 h-4" /> },
         { id: 'leads', label: 'All Leads', icon: <Target className="w-4 h-4" /> }
       ]
     },

@@ -12,6 +12,7 @@ import { Sequences } from "../views/Sequences";
 import { Analytics } from "../views/Analytics";
 import { LeadModal } from "../components/leads/LeadModal";
 import { LogModal } from "../components/outreach/LogModal";
+import { DecisionMakerFinder } from "../components/outreach/DecisionMakerFinder";
 import { useLeads, Lead } from "../hooks/useLeads";
 import { useAnalytics } from "../hooks/useAnalytics";
 import { useRealtime } from "../hooks/useRealtime";
@@ -106,6 +107,19 @@ function CommandCenter() {
               return res;
             }} 
             setActivePage={setActivePage} 
+          />
+        );
+      case "finder":
+        return (
+          <DecisionMakerFinder
+            onAddLeads={async (newLeadsList) => {
+              const res = await addLeads(newLeadsList);
+              if (res) {
+                setCredits(prev => Math.max(0, prev - newLeadsList.length));
+              }
+              return res;
+            }}
+            setActivePage={setActivePage}
           />
         );
       case "campaigns":
