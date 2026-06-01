@@ -89,6 +89,93 @@ function parseLinkedInTitle(title: string, companyName: string) {
   return { name, role };
 }
 
+// ─── Current Employee Validator ──────────────────────────────────────────────
+
+function escapeRegex(string: string): string {
+  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+function isValidCurrentEmployee(title: string, snippet: string, companyName: string): boolean {
+  const cleanTitle = title.replace(/\s*[|:-]\s*LinkedIn$/i, '').trim();
+  const parts = cleanTitle.split(/\s*[-–|:]\s*/);
+  
+  const lowerCompany = companyName.toLowerCase();
+  const titleLower = title.toLowerCase();
+  const snippetLower = snippet.toLowerCase();
+  const escapedCompany = escapeRegex(lowerCompany);
+  
+  // 1. Extract name (typically parts[0]) and check if companyName only matches the person's name
+  const namePart = (parts[0] || '').toLowerCase();
+  
+  // Check if company name is in the title outside of the name part
+  let companyInTitleOutsideName = false;
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i].toLowerCase().includes(lowerCompany)) {
+      companyInTitleOutsideName = true;
+      break;
+    }
+  }
+  
+  // Check if the snippet contains employment indicators with the company name
+  const employmentRegex = new RegExp(`\\b(at|of|@|in|for|join|joined|with|current|currently|works at|working at|team at)\\s+${escapedCompany}\\b`, 'i');
+  const hasEmploymentIndicator = employmentRegex.test(titleLower) || employmentRegex.test(snippetLower);
+  
+  // If the company name is ONLY found in the name part and there is no employment indicator, reject it
+  const companyInName = namePart.includes(lowerCompany);
+  const companyInTitleOrSnippet = titleLower.includes(lowerCompany) || snippetLower.includes(lowerCompany);
+  
+  if (companyInName && !companyInTitleOutsideName && !hasEmploymentIndicator) {
+    console.log(`[Filter] Rejecting "${title}" - company name only matches name part.`);
+    return false;
+  }
+  
+  // If the company name is not in the title/snippet at all, reject
+  if (!companyInTitleOrSnippet) {
+    return false;
+  }
+  
+  // 2. Filter out former/past workers
+  let isFormer = false;
+  for (const part of parts) {
+    const partLower = part.toLowerCase();
+    if (partLower.includes(lowerCompany)) {
+      if (
+        partLower.includes('former') ||
+        partLower.includes('ex-') ||
+        /\bex\b/.test(partLower) ||
+        partLower.includes('previously') ||
+        partLower.includes('retired') ||
+        partLower.includes('past') ||
+        partLower.includes('worked at')
+      ) {
+        isFormer = true;
+        break;
+      }
+    }
+  }
+  
+  const windowRegex1 = new RegExp(`\\b(former|ex|prev|previously|past|retired|worked at)\\b[^.!?]{1,35}\\b${escapedCompany}\\b`, 'i');
+  const windowRegex2 = new RegExp(`\\b${escapedCompany}\\b[^.!?]{1,35}\\b(former|ex|prev|previously|past|retired|worked at)\\b`, 'i');
+  
+  if (windowRegex1.test(snippetLower) || windowRegex2.test(snippetLower)) {
+    // Check if there is a current indicator to override former check
+    const currentRegex1 = new RegExp(`\\b(current|currently|present|now|works at|working at)\\b[^.!?]{1,35}\\b${escapedCompany}\\b`, 'i');
+    const currentRegex2 = new RegExp(`\\b${escapedCompany}\\b[^.!?]{1,35}\\b(current|currently|present|now|works at|working at)\\b`, 'i');
+    const hasCurrent = currentRegex1.test(snippetLower) || currentRegex2.test(snippetLower) || currentRegex1.test(titleLower) || currentRegex2.test(titleLower);
+    
+    if (!hasCurrent) {
+      isFormer = true;
+    }
+  }
+  
+  if (isFormer) {
+    console.log(`[Filter] Rejecting "${title}" - identified as Former Employee.`);
+    return false;
+  }
+  
+  return true;
+}
+
 // ─── Main Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -143,15 +230,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // Filter results to ensure they are actual LinkedIn profiles and belong to the correct company name
+    // Filter results to ensure they are actual LinkedIn profiles and belong to the correct company name, filtering out former employees and name overlap cases
     const filteredProfiles = searchItems.filter(item => {
       const link = (item.link || '').toLowerCase();
-      const title = (item.title || '').toLowerCase();
-      
       const isLinkedIn = link.includes('linkedin.com/in/');
-      const matchesCompany = title.includes(companyName.toLowerCase()) || (item.snippet || '').toLowerCase().includes(companyName.toLowerCase());
       
-      return isLinkedIn && matchesCompany;
+      if (!isLinkedIn) return false;
+      
+      return isValidCurrentEmployee(item.title || '', item.snippet || '', companyName);
     });
 
     // Resolve MX status once for the domain
