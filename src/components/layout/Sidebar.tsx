@@ -79,10 +79,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
         { id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> }
       ]
+    },
+    {
+      section: 'SANDBOX',
+      items: [
+        { id: 'demo-link', label: 'AI Feature Demo', icon: <Zap className="w-4 h-4 text-[#00ffc8]" /> }
+      ]
     }
   ];
 
   const handleNavClick = (id: string) => {
+    if (id === 'demo-link') {
+      window.open('/demo', '_blank');
+      return;
+    }
     setActivePage(id);
   };
 
