@@ -39,6 +39,7 @@ interface SiteAnalysis {
   analytics: string[];
   pixels: string[];
   social: Record<string, boolean>;
+  socialUrls?: Record<string, string>;
   emails: string[];
   phones: string[];
   score: number;
@@ -141,7 +142,7 @@ async function analyzeWebsite(url: string, preFetchedHtml?: string, preFetchedLo
   const empty: SiteAnalysis = {
     exists: false, score: 0, cms: null, ssl: false, loadTime: 0,
     frameworks: [], analytics: [], pixels: [],
-    social: {}, emails: [], phones: [],
+    social: {}, socialUrls: {}, emails: [], phones: [],
     seo: {}, conversion: {}, tech: {}, aeo: {},
     opportunities: ['No website — critical gap'], categories: {},
   };
@@ -202,6 +203,33 @@ async function analyzeWebsite(url: string, preFetchedHtml?: string, preFetchedLo
     social.linkedin = /linkedin\.com\/(?:company|in)\/[\w.-]+/i.test(html);
     social.youtube = /youtube\.com\/(?:channel|c|user|@)[\w.-]+/i.test(html);
     social.tiktok = /tiktok\.com\/@[\w.-]+/i.test(html);
+
+    const socialUrls: Record<string, string> = {
+      facebook: 'N/A',
+      instagram: 'N/A',
+      twitter: 'N/A',
+      linkedin: 'N/A',
+      youtube: 'N/A',
+      tiktok: 'N/A'
+    };
+
+    const fbMatch = html.match(/href=["'](https?:\/\/(www\.)?facebook\.com\/(?!sharer|share|plugins)[\w.\-\/]+)/i);
+    if (fbMatch) socialUrls.facebook = fbMatch[1];
+
+    const instaMatch = html.match(/href=["'](https?:\/\/(www\.)?instagram\.com\/[\w.\-\/]+)/i);
+    if (instaMatch) socialUrls.instagram = instaMatch[1];
+
+    const twMatch = html.match(/href=["'](https?:\/\/(www\.)?(twitter|x)\.com\/[\w.\-\/]+)/i);
+    if (twMatch) socialUrls.twitter = twMatch[1];
+
+    const liMatch = html.match(/href=["'](https?:\/\/(www\.)?linkedin\.com\/(company|in|pub)\/[\w.\-\/]+)/i);
+    if (liMatch) socialUrls.linkedin = liMatch[1];
+
+    const ytMatch = html.match(/href=["'](https?:\/\/(www\.)?youtube\.com\/(channel|c|user|@)[\w.\-\/]+)/i);
+    if (ytMatch) socialUrls.youtube = ytMatch[1];
+
+    const ttMatch = html.match(/href=["'](https?:\/\/(www\.)?tiktok\.com\/@[\w.\-\/]+)/i);
+    if (ttMatch) socialUrls.tiktok = ttMatch[1];
 
     // --- SEO DEEP ---
     const titleM = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -318,6 +346,7 @@ async function analyzeWebsite(url: string, preFetchedHtml?: string, preFetchedLo
 
     return {
       exists: true, ssl, loadTime, cms, frameworks, analytics, pixels, social,
+      socialUrls,
       emails, phones, score: siteScore, opportunities: opps,
       seo: { title: titleText, description: descText, h1Count: h1s.length, h2Count: h2s.length, hasOG, hasSchema, hasFaqSchema, hasLocalSchema, hasBlog, hasSitemap, hasCanonical, imgTotal, imgNoAlt, wordCount, seo_score: seoScore },
       conversion: { hasForm, hasLeadForm, ctaCount, hasBooking, hasCalendly, hasChat, hasWhatsapp, hasTestimonials, hasTrustBadges, hasPortfolio, hasPricing, hasPopup, hasVideo },
@@ -725,6 +754,10 @@ async function processSearchResult(
       opps,
       decisionMaker,
       directEmail,
+      facebookUrl: siteData.socialUrls?.facebook || 'N/A',
+      instagramUrl: siteData.socialUrls?.instagram || 'N/A',
+      linkedinUrl: siteData.socialUrls?.linkedin || 'N/A',
+      placeUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(companyName + ' ' + city)}`,
       siteAnalysis: {
         exists: siteData.exists, cms: siteData.cms, loadTime: siteData.loadTime,
         seoScore: seoScoreVal || 0, seoTitle: (siteData.seo as Record<string, unknown>)?.title,

@@ -40,6 +40,10 @@ interface StreamedLead {
   mx_verified?: boolean;
   source_query?: string;
   service_pitched?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
+  placeUrl?: string;
 }
 
 const COUNTRIES = [
@@ -158,6 +162,10 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
               crm_status: 'new',
               notes: [
                 `Decision Maker: ${raw.decisionMaker || 'N/A'}`,
+                `Facebook: ${raw.facebookUrl || 'N/A'}`,
+                `Instagram: ${raw.instagramUrl || 'N/A'}`,
+                `LinkedIn: ${raw.linkedinUrl || 'N/A'}`,
+                `Google Maps: ${raw.placeUrl || 'N/A'}`,
                 ...(raw.siteAnalysis?.opportunities || [])
               ].join('\n'),
               mx_verified: raw.mx_verified,
