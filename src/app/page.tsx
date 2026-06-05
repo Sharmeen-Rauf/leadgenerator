@@ -76,6 +76,7 @@ function CommandCenter() {
             outreachLogs={outreachLogs}
             snapshots={snapshots}
             onSelectLead={(l) => { setSelectedLead(l); setLeadModalTab('diagnostic'); }}
+            setActivePage={setActivePage}
           />
         );
       case "leads":

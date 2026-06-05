@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      section: 'INTELLIGENCE',
+      section: 'ANALYTICS',
       items: [
         { id: 'dashboard', label: 'Analytics Dashboard', icon: <BarChart2 className="w-4 h-4" /> },
         { id: 'pipeline-value', label: 'Revenue Pipeline', icon: <TrendingUp className="w-4 h-4" /> }

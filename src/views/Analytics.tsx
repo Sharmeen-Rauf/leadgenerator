@@ -469,7 +469,7 @@ ALTER TABLE analytics_snapshots DISABLE ROW LEVEL SECURITY;
           <div className="tactical-glass p-5 border-[#00D4FF]/15 font-mono select-none flex flex-col justify-between h-full">
             <div>
               <h4 className="text-[10px] text-[#39FF14] font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-[#39FF14]" /> Database Ingestion Control
+                <ShieldCheck className="w-4 h-4 text-[#39FF14]" /> Database & CRM Seed Control
               </h4>
               <p className="text-[10px] text-neutral-405 leading-relaxed mb-6">
                 Clicking the seed button below will instantly purge existing records and insert 4 high-quality pre-audited leads, 2 sequences, 4 logs, and a 30-day snapshot series into your Supabase project so you can immediately explore the Tactical Command Center.

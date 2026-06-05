@@ -209,7 +209,12 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
     if (leads.length === 0) return;
     setCommitting(true);
     try {
-      await onAddLeads(leads);
+      const res = await onAddLeads(leads);
+      if (res) {
+        setLeads([]);
+        setSelected(new Set());
+        setActivePage('leads');
+      }
     } finally {
       setCommitting(false);
     }
@@ -220,9 +225,37 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
     if (selectedLeads.length === 0) return;
     setCommittingSelected(true);
     try {
-      await onAddLeads(selectedLeads);
+      const res = await onAddLeads(selectedLeads);
+      if (res) {
+        setLeads(prev => prev.filter((_, i) => !selected.has(i)));
+        setSelected(new Set());
+      }
     } finally {
       setCommittingSelected(false);
+    }
+  };
+
+  const handleCommitIndividual = async (lead: StreamedLead, index: number) => {
+    try {
+      const res = await onAddLeads([lead]);
+      if (res) {
+        setLeads(prev => prev.filter((_, i) => i !== index));
+        setSelected(prev => {
+          const next = new Set(prev);
+          next.delete(index);
+          const shifted = new Set<number>();
+          next.forEach(i => {
+            if (i > index) {
+              shifted.add(i - 1);
+            } else {
+              shifted.add(i);
+            }
+          });
+          return shifted;
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
     }
   };
 
@@ -457,7 +490,7 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#39FF14]" />
                 <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">
-                  Bulk Ingestion Buffer ({leads.length} Nodes)
+                  Scraped Leads Preview ({leads.length} Nodes)
                 </h3>
                 {scanning && (
                   <span className="flex items-center gap-1.5 text-[9px] text-[#39FF14] font-bold uppercase">
@@ -603,9 +636,17 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
 
                         {/* Actions */}
                         <td className="py-2.5 pl-4 text-right">
-                          <span className="text-[#FFB800] font-bold text-[9px]">
-                            ${(lead.est_revenue_loss || 0).toLocaleString()}/mo
-                          </span>
+                          <div className="flex items-center justify-end gap-2.5">
+                            <span className="text-[#FFB800] font-bold text-[9px]">
+                              ${(lead.est_revenue_loss || 0).toLocaleString()}/mo
+                            </span>
+                            <button
+                              onClick={() => handleCommitIndividual(lead, idx)}
+                              className="shimmer-btn bg-neutral-900 border border-[#39FF14]/25 hover:bg-[#39FF14] hover:text-[#080C18] text-[#39FF14] px-2.5 py-1 rounded text-[9px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Database className="w-2.5 h-2.5" /> Save to CRM
+                            </button>
+                          </div>
                         </td>
                       </motion.tr>
                     ))}
@@ -647,7 +688,7 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
                     loading={committingSelected}
                     disabled={committingSelected}
                   >
-                    <Database className="w-3.5 h-3.5" /> Commit {selected.size} Selected
+                    <Database className="w-3.5 h-3.5" /> Save Selected to CRM
                   </Button>
                 )}
 
@@ -658,7 +699,7 @@ export const BulkScraper: React.FC<BulkScraperProps> = ({ onAddLeads, setActiveP
                   loading={committing}
                   disabled={committing}
                 >
-                  <Database className="w-3.5 h-3.5" /> Commit All {leads.length} to Supabase
+                  <Database className="w-3.5 h-3.5" /> Save All {leads.length} to CRM
                 </Button>
               </div>
             </div>

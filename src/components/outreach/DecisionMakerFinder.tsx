@@ -171,7 +171,7 @@ export const DecisionMakerFinder: React.FC<DecisionMakerFinderProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      showToast('Ingestion failed: ' + err.message, 'error');
+      showToast('Saving to CRM failed: ' + err.message, 'error');
     } finally {
       setImportedIndex(null);
     }

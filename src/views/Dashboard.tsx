@@ -15,13 +15,15 @@ interface DashboardProps {
   outreachLogs: OutreachEntry[];
   snapshots: AnalyticsSnapshot[];
   onSelectLead: (lead: Lead) => void;
+  setActivePage?: (page: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   leads,
   outreachLogs,
   snapshots,
-  onSelectLead
+  onSelectLead,
+  setActivePage
 }) => {
   // KPI Calculations
   const stats = useMemo(() => {
@@ -101,10 +103,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* ZERO-STATE ONBOARDING WELCOME CARD */}
+      {leads.length === 0 && (
+        <div className="tactical-glass p-6 border-[#00D4FF]/25 bg-[#00D4FF]/5 rounded-lg space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2.5 border-b border-[#00D4FF]/10 pb-3">
+            <Zap className="w-4.5 h-4.5 text-[#00ffc8] fill-[#00ffc8]/10 animate-pulse" />
+            <div>
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">Welcome to PitchRadar AI</h3>
+              <p className="text-[9px] text-[#00ffc8] font-bold uppercase tracking-widest mt-0.5">Your automated B2B lead generation engine is active</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Step 1 */}
+            <div className="bg-black/45 border border-neutral-850 rounded p-4.5 space-y-2 relative group hover:border-[#00D4FF]/30 transition-all">
+              <div className="absolute top-3 right-3 text-[9px] text-neutral-600 font-extrabold font-mono">01</div>
+              <h4 className="text-[9px] font-extrabold text-white uppercase tracking-wider">Step 1: Scan for Leads</h4>
+              <p className="text-[9px] text-neutral-450 uppercase leading-relaxed font-bold">
+                Go to the <span className="text-[#00D4FF]">Lead Scraper</span> tab and type an industry + city (e.g. <span className="text-white">"Roofers Chicago"</span> or <span className="text-white">"Dentists Boston"</span>).
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-black/45 border border-neutral-850 rounded p-4.5 space-y-2 relative group hover:border-[#00D4FF]/30 transition-all">
+              <div className="absolute top-3 right-3 text-[9px] text-neutral-600 font-extrabold font-mono">02</div>
+              <h4 className="text-[9px] font-extrabold text-white uppercase tracking-wider">Step 2: Save to CRM</h4>
+              <p className="text-[9px] text-neutral-450 uppercase leading-relaxed font-bold">
+                See where businesses are losing money (SEO, Speed, Pixels). Click <span className="text-[#39FF14]">"Save to CRM"</span> to import them into your active pipeline stages.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-black/45 border border-neutral-850 rounded p-4.5 space-y-2 relative group hover:border-[#00D4FF]/30 transition-all">
+              <div className="absolute top-3 right-3 text-[9px] text-neutral-600 font-extrabold font-mono">03</div>
+              <h4 className="text-[9px] font-extrabold text-white uppercase tracking-wider">Step 3: Launch Outreach</h4>
+              <p className="text-[9px] text-neutral-450 uppercase leading-relaxed font-bold">
+                Go to <span className="text-[#00D4FF]">All Leads</span>, select a lead to open diagnostic details, and write a personalized AI email sequence.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-start">
+            <button
+              onClick={() => setActivePage && setActivePage('scraper')}
+              className="bg-[#00D4FF] hover:bg-[#00D4FF]/80 text-[#070A14] font-bold text-[9px] px-4 py-2.5 rounded uppercase tracking-wider transition-all shadow-[0_0_12px_rgba(0,212,255,0.25)] cursor-pointer"
+            >
+              Start Scanning for Leads →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI ROW */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
-        <KPICard title="INTELLIGENCE INDEXED" value={stats.total} variant="cyan" />
-        <KPICard title="AUDIT COMPLETION" value={stats.checkedPct} suffix="%" variant="amber" />
+        <KPICard title="TOTAL LEADS FOUND" value={stats.total} variant="cyan" />
+        <KPICard title="LEAD AUDIT RATE" value={stats.checkedPct} suffix="%" variant="amber" />
         <KPICard title="OUTREACH RATE" value={stats.contactedPct} suffix="%" variant="cyan" />
         <KPICard title="WON CONTRACTS" value={stats.won} variant="green" />
         <KPICard title="PIPELINE VALUE" value={stats.pipelineVal} prefix="$" variant="green" />
@@ -115,7 +168,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* CRM Funnel */}
         <div className="tactical-glass p-5 border-[#00D4FF]/15 flex flex-col justify-between">
           <div className="text-[10px] text-neutral-450 font-mono font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-[#00D4FF]" /> INGESTION PIPELINE FUNNEL
+            <Zap className="w-3.5 h-3.5 text-[#00D4FF]" /> YOUR LEADS PIPELINE
           </div>
           <FunnelChart {...funnelStats} />
         </div>
@@ -123,7 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Area Chart */}
         <div className="tactical-glass p-5 border-[#00D4FF]/15 flex flex-col justify-between">
           <div className="text-[10px] text-neutral-450 font-mono font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-[#00D4FF]" /> INDEX SCAN DEVELOPMENT (30D)
+            <Activity className="w-3.5 h-3.5 text-[#00D4FF]" /> LEAD SCRAPING TREND (30D)
           </div>
           <AreaChart data={chartData} />
         </div>
@@ -131,18 +184,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Gap Chart */}
         <div className="tactical-glass p-5 border-[#00D4FF]/15 flex flex-col justify-between">
           <div className="text-[10px] text-neutral-450 font-mono font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-[#39FF14]" /> VULNERABILITY MATRIX ANALYSIS
+            <Shield className="w-3.5 h-3.5 text-[#39FF14]" /> WHERE LEADS ARE LOSING MONEY
           </div>
           <GapChart {...gapStats} />
         </div>
-      </div>
-
-      {/* RECENT ACTIVITY & TOP LEADS ROW */}
+      </div>      {/* RECENT ACTIVITY & TOP LEADS ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Top Scoring Leads */}
         <div className="tactical-glass p-5 border-[#00D4FF]/15 font-mono select-none flex flex-col justify-between">
-          <div className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mb-4 flex justify-between items-center border-b border-[#00D4FF]/10 pb-2">
-            <span>🚀 Top Vulnerability Lead Decoders</span>
+          <div className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider mb-4 flex justify-between items-center border-b border-[#00D4FF]/10 pb-2">
+            <span>🚀 Highest Priority Leads</span>
             <span className="text-[#39FF14] text-[9px] font-extrabold uppercase">High Priority</span>
           </div>
           
@@ -166,7 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ))
             ) : (
               <div className="h-full flex items-center justify-center text-center text-neutral-500 text-[10.5px] italic py-8">
-                No high priority nodes remaining.
+                No priority leads remaining.
               </div>
             )}
           </div>
@@ -174,8 +225,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Recent Outreach activity log */}
         <div className="tactical-glass p-5 border-[#00D4FF]/15 font-mono select-none flex flex-col justify-between">
-          <div className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mb-4 flex justify-between items-center border-b border-[#00D4FF]/10 pb-2">
-            <span>📞 Recent System Communications</span>
+          <div className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider mb-4 flex justify-between items-center border-b border-[#00D4FF]/10 pb-2">
+            <span>📞 Recent Outreach Activity</span>
             <span className="text-[#00D4FF] text-[9px] font-extrabold uppercase">Live Feed</span>
           </div>
 
@@ -204,7 +255,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               })
             ) : (
               <div className="h-full flex items-center justify-center text-center text-neutral-500 text-[10.5px] italic py-8">
-                Communications silent. No outreach logged.
+                No outreach logged yet.
               </div>
             )}
           </div>

@@ -145,7 +145,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#39FF14]" />
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Scrape Ingestion Buffer ({processedResults.length} Nodes)</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Scraped Leads Preview ({processedResults.length} Nodes)</h3>
           </div>
           <button
             onClick={() => setOnlyHighFit(prev => !prev)}
@@ -165,7 +165,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
           loading={committing}
           disabled={processedResults.length === 0}
         >
-          <Database className="w-3.5 h-3.5" /> Commit {processedResults.length} Ingested Logs to Supabase
+          <Database className="w-3.5 h-3.5" /> Save {processedResults.length} Leads to CRM
         </Button>
       </div>
 
@@ -259,12 +259,20 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
                   </span>
                 </td>
                 <td className="py-2.5 pl-4 text-right">
-                  <button
-                    onClick={() => setSelectedPitchLead(r)}
-                    className="shimmer-btn bg-neutral-900 border border-[#00D4FF]/25 hover:bg-[#00D4FF] hover:text-[#080C18] text-[#00D4FF] px-2.5 py-1 rounded text-[9px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer ml-auto"
-                  >
-                    <Sparkles className="w-2.5 h-2.5 fill-current" /> Pitch
-                  </button>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => onCommit([r])}
+                      className="shimmer-btn bg-neutral-900 border border-[#39FF14]/25 hover:bg-[#39FF14] hover:text-[#080C18] text-[#39FF14] px-2.5 py-1 rounded text-[9px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Database className="w-2.5 h-2.5" /> Save to CRM
+                    </button>
+                    <button
+                      onClick={() => setSelectedPitchLead(r)}
+                      className="shimmer-btn bg-neutral-900 border border-[#00D4FF]/25 hover:bg-[#00D4FF] hover:text-[#080C18] text-[#00D4FF] px-2.5 py-1 rounded text-[9px] font-mono font-extrabold uppercase transition-all duration-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-2.5 h-2.5 fill-current" /> Pitch
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -277,7 +285,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
         <Modal
           isOpen={!!selectedPitchLead}
           onClose={() => setSelectedPitchLead(null)}
-          title="PRE-INGESTION AI OUTREACH PITCH GENERATOR"
+          title="AI OUTREACH PITCH GENERATOR"
           subtitle={`LEAD: ${selectedPitchLead.company_name}`}
           maxWidth="max-w-[650px]"
         >
@@ -335,7 +343,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
 
             {/* Hint message */}
             <div className="text-[9px] text-[#FFB800]/80 bg-[#FFB800]/5 border border-[#FFB800]/25 rounded p-2 text-center uppercase tracking-wider font-extrabold">
-              ⚠️ Ingest this lead to Supabase to enable direct pipeline outreach tracking and broadcast actions.
+              ⚠️ Save this lead to CRM to enable direct pipeline outreach tracking and broadcast actions.
             </div>
 
             {/* Action Buttons Footer */}
@@ -362,7 +370,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
                     }
                   }}
                 >
-                  Commit & Ingest Lead
+                  Save to CRM
                 </Button>
               </div>
             </div>

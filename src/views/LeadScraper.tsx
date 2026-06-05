@@ -128,12 +128,12 @@ export const LeadScraper: React.FC<LeadScraperProps> = ({
           setScrapedResults(prev => 
             prev.filter(item => !leadsToCommit.some(l => l.company_name === item.company_name))
           );
-          showToast(`Ingested ${leadsToCommit.length} lead(s) successfully.`, 'success');
+          showToast(`Saved ${leadsToCommit.length} lead(s) to CRM successfully.`, 'success');
         }
       }
     } catch (err: any) {
       console.error(err);
-      showToast('Ingestion failed: ' + err.message, 'error');
+      showToast('Saving to CRM failed: ' + err.message, 'error');
     } finally {
       setCommitting(false);
     }
@@ -172,6 +172,43 @@ export const LeadScraper: React.FC<LeadScraperProps> = ({
       {mode === 'places' && (
         <>
           <SearchForm onSearch={handleRunScan} loading={loading} />
+
+          {!loading && progress === 0 && scrapedResults.length === 0 && (
+            <div className="tactical-glass p-5 border-[#00D4FF]/25 bg-[#00D4FF]/5 rounded-lg space-y-4 font-mono select-none animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2 border-b border-[#00D4FF]/10 pb-2.5">
+                <Zap className="w-4 h-4 text-[#00ffc8] fill-[#00ffc8]/10 animate-pulse" />
+                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">
+                  Quick Start Guide: Find Your First Lead
+                </h4>
+              </div>
+              <p className="text-[9.5px] text-[#e2e8f0]/80 uppercase leading-relaxed font-semibold">
+                Welcome! Start by searching for leads. Type a business type + city below.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[9px]">
+                <div className="bg-black/45 border border-neutral-850 rounded p-3 space-y-1">
+                  <div className="text-neutral-500 font-extrabold font-mono text-[8px]">01 // SEARCH</div>
+                  <h5 className="font-extrabold text-white uppercase">Search for leads</h5>
+                  <p className="text-neutral-450 uppercase leading-relaxed">
+                    Type a business niche and a city (e.g. <span className="text-[#00D4FF]">"Dentists Boston"</span>) and hit scan.
+                  </p>
+                </div>
+                <div className="bg-black/45 border border-neutral-850 rounded p-3 space-y-1">
+                  <div className="text-neutral-500 font-extrabold font-mono text-[8px]">02 // AUDIT</div>
+                  <h5 className="font-extrabold text-white uppercase">Audit gaps</h5>
+                  <p className="text-neutral-450 uppercase leading-relaxed">
+                    View technical gaps (SEO score, site speed, SSL status) and check estimated monthly money lost.
+                  </p>
+                </div>
+                <div className="bg-[#39FF14]/5 border border-[#39FF14]/20 rounded p-3 space-y-1">
+                  <div className="text-[#39FF14]/70 font-extrabold font-mono text-[8px]">03 // IMPORT</div>
+                  <h5 className="font-extrabold text-[#39FF14] uppercase">Save to CRM</h5>
+                  <p className="text-[#39FF14]/80 uppercase leading-relaxed">
+                    Click <span className="text-white font-extrabold">"Save to CRM"</span> to import the lead instantly to your pipeline stages.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {(loading || progress > 0) && scrapedResults.length === 0 && (
             <ProgressBar progress={progress} statusText={statusText} />
