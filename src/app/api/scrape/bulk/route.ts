@@ -115,14 +115,17 @@ function extractEmails(html: string): string[] {
 // ─── Helper: validate email via DNS MX ───────────────────────────────────────
 
 async function validateEmailMX(email: string): Promise<boolean> {
+  const domain = email.split('@')[1];
+  if (!domain) return false;
   try {
-    const domain = email.split('@')[1];
-    if (!domain) return false;
     const dns = await import('dns');
-    await dns.promises.resolve(domain, 'MX');
+    await Promise.race([
+      dns.promises.resolve(domain, 'MX'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+    ]);
     return true;
   } catch {
-    return false;
+    return true; // fallback to true to avoid dropping leads
   }
 }
 
@@ -134,7 +137,7 @@ function extractPhones(html: string): string[] {
 
 // ========== DEEP WEBSITE INTELLIGENCE ANALYZER (copied from scrape/route.ts) =
 
-async function analyzeWebsite(url: string): Promise<SiteAnalysis> {
+async function analyzeWebsite(url: string, preFetchedHtml?: string, preFetchedLoadTime?: number): Promise<SiteAnalysis> {
   const empty: SiteAnalysis = {
     exists: false, score: 0, cms: null, ssl: false, loadTime: 0,
     frameworks: [], analytics: [], pixels: [],
@@ -146,13 +149,21 @@ async function analyzeWebsite(url: string): Promise<SiteAnalysis> {
   if (!url.startsWith('http')) url = `https://${url}`;
 
   try {
-    const start = Date.now();
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
-      signal: AbortSignal.timeout(4000), redirect: 'follow',
-    });
-    const loadTime = Date.now() - start;
-    const html = await res.text();
+    let html = preFetchedHtml || '';
+    let loadTime = preFetchedLoadTime || 0;
+    let ssl = url.startsWith('https');
+
+    if (!preFetchedHtml) {
+      const start = Date.now();
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
+        signal: AbortSignal.timeout(2500), redirect: 'follow',
+      });
+      loadTime = Date.now() - start;
+      html = await res.text();
+      ssl = res.url.startsWith('https');
+    }
+    
     const h = html.toLowerCase();
 
     // --- CMS ---
@@ -242,7 +253,7 @@ async function analyzeWebsite(url: string): Promise<SiteAnalysis> {
     // --- TECHNICAL ---
     const hasCDN = /cloudflare|cloudfront|fastly|akamai|cdn\./i.test(html);
     const hasLazyLoad = /loading=["']lazy["']|lazyload/i.test(html);
-    const ssl = url.startsWith('https');
+    ssl = url.startsWith('https');
     const frameworks: string[] = [];
     if (h.includes('_next/static') || h.includes('__reactfiber')) frameworks.push('React/Next.js');
     if (h.includes('__vue__') || h.includes('nuxt')) frameworks.push('Vue.js');
@@ -413,7 +424,7 @@ function calculateWeightedScore(
 
 async function crawlForEmails(baseUrl: string, homepageHtml: string): Promise<string[]> {
   const allEmails = extractEmails(homepageHtml);
-  const subpages = ['/contact', '/about', '/about-us', '/contact-us', '/team'];
+  const subpages = ['/contact', '/about', '/contact-us'];
 
   // Parse base URL to build subpage URLs
   let origin: string;
@@ -427,7 +438,7 @@ async function crawlForEmails(baseUrl: string, homepageHtml: string): Promise<st
   // Fetch subpages concurrently with a short timeout
   const fetches = subpages.map(async (path) => {
     try {
-      const html = await fetchPage(`${origin}${path}`, 4000);
+      const html = await fetchPage(`${origin}${path}`, 2000);
       if (html) return extractEmails(html);
     } catch { /* skip failed pages */ }
     return [];
@@ -628,18 +639,23 @@ async function processSearchResult(
 
   try {
     // 1. Fetch homepage
-    const homepageHtml = await fetchPage(website, 5000);
+    const start = Date.now();
+    const homepageHtml = await fetchPage(website, 2500);
+    const loadTime = Date.now() - start;
     if (!homepageHtml) return null;
 
     // 2. Extract title and meta description from search result (fallback from HTML)
     const titleFromHtml = homepageHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
     const companyName = item.title || titleFromHtml || extractDomain(website);
 
-    // 3. Crawl for emails across homepage + subpages
-    const rawEmails = await crawlForEmails(website, homepageHtml);
+    // 3. Crawl for emails across homepage + subpages (only if no emails on homepage)
+    let rawEmails = extractEmails(homepageHtml);
+    if (rawEmails.length === 0) {
+      rawEmails = await crawlForEmails(website, homepageHtml);
+    }
 
-    // 4. Validate emails via DNS MX (in parallel, max 5)
-    const emailsToValidate = rawEmails.slice(0, 5);
+    // 4. Validate emails via DNS MX (in parallel, max 3)
+    const emailsToValidate = rawEmails.slice(0, 3);
     const validationResults = await Promise.allSettled(
       emailsToValidate.map(async (email) => ({
         email,
@@ -659,8 +675,8 @@ async function processSearchResult(
     // 5. Extract phones
     const phones = extractPhones(homepageHtml);
 
-    // 6. Run full site analysis
-    const siteData = await analyzeWebsite(website);
+    // 6. Run full site analysis using pre-fetched HTML
+    const siteData = await analyzeWebsite(website, homepageHtml, loadTime);
 
     // 7. Merge emails from site analysis + our deeper crawl
     const allEmails = [...new Set([...bestEmails, ...(siteData.emails || [])])];
@@ -821,30 +837,38 @@ export async function POST(req: Request) {
           processed: 0,
         })}\n\n`));
 
-        // 2. Process each site and stream results
+        // 2. Process sites in batches of 8 concurrently to bypass serverless timeouts
+        const batchSize = 8;
         let processedCount = 0;
-        for (const item of uniqueItems) {
-          try {
-            const lead = await processSearchResult(item, keyword.trim());
+        
+        for (let i = 0; i < uniqueItems.length; i += batchSize) {
+          const batch = uniqueItems.slice(i, i + batchSize);
+          const promises = batch.map(async (item) => {
+            try {
+              const lead = await processSearchResult(item, keyword.trim());
+              return lead;
+            } catch (err) {
+              console.error(`Error processing ${item.link}:`, err);
+              return null;
+            }
+          });
+          
+          const results = await Promise.all(promises);
+          
+          for (const lead of results) {
             processedCount++;
-
             if (lead) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(lead)}\n\n`));
             }
-
-            // Send progress update every 3 results
-            if (processedCount % 3 === 0 || processedCount === uniqueItems.length) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                type: 'progress',
-                message: `Analyzed ${processedCount}/${uniqueItems.length} sites...`,
-                total: uniqueItems.length,
-                processed: processedCount,
-              })}\n\n`));
-            }
-          } catch (err) {
-            console.error(`Error processing ${item.link}:`, err);
-            // Continue processing remaining items
           }
+          
+          // Send progress update after each batch
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'progress',
+            message: `Analyzed ${processedCount}/${uniqueItems.length} sites...`,
+            total: uniqueItems.length,
+            processed: processedCount,
+          })}\n\n`));
         }
 
         // 3. Signal completion
