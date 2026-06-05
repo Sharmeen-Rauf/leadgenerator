@@ -1,9 +1,8 @@
-import React from 'react';
 import { 
   Search, Target, Send, BarChart2, Users, Mail, Globe, Star, 
   Phone, Flame, LayoutDashboard, Building2, MapPin, ChevronRight, 
   Check, Copy, Network, Activity, DollarSign, TrendingUp, Shield, 
-  MessageSquare, Filter, CheckSquare, Square, Settings, Link2, Zap
+  MessageSquare, Filter, CheckSquare, Square, Settings, Link2, Zap, Cpu
 } from 'lucide-react';
 import { Lead } from '../../hooks/useLeads';
 
@@ -83,7 +82,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       section: 'SANDBOX',
       items: [
-        { id: 'demo-link', label: 'AI Feature Demo', icon: <Zap className="w-4 h-4 text-[#00ffc8]" /> }
+        { id: 'demo-link', label: 'AI Feature Demo', icon: <Zap className="w-4 h-4 text-[#00ffc8]" /> },
+        { id: 'agent-link', label: 'AI Agent Console', icon: <Cpu className="w-4 h-4 text-[#39FF14]" /> }
       ]
     }
   ];
@@ -91,6 +91,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleNavClick = (id: string) => {
     if (id === 'demo-link') {
       window.open('/demo', '_blank');
+      return;
+    }
+    if (id === 'agent-link') {
+      window.open('/agent', '_blank');
       return;
     }
     setActivePage(id);
