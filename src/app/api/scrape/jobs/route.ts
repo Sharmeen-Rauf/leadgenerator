@@ -15,24 +15,55 @@ export async function POST(req: Request) {
 
     const client = new ApifyClient({ token });
     
-    // The user requested a "job scrapper". 
-    // We'll use a reliable, active LinkedIn Jobs scraper actor on Apify.
-    const actorId = 'bebity/linkedin-jobs-scraper';
+    // We'll use the free Google Search scraper to bypass the paid rental lock on specific LinkedIn scrapers
+    const actorId = 'apify/google-search-scraper';
 
     console.log(`Scraping jobs for: ${keyword} in ${location} using ${actorId}`);
 
     const run = await client.actor(actorId).call({
-      includeKeyword: keyword,
-      locationName: location,
-      count: limit,
-      scrapeCompany: false
+      queries: [`site:linkedin.com/jobs/view "${keyword}" "${location}"`],
+      maxPagesPerQuery: 1,
+      resultsPerPage: Math.max(10, limit)
     });
 
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    
+    // Parse Google Search results to extract Job info
+    let jobs = [];
+    if (items.length > 0 && items[0].organicResults) {
+      jobs = items[0].organicResults.map((res: any) => {
+        let title = keyword;
+        let companyName = 'Unknown Company';
+        
+        // Typical format: "Web Developer - TechCorp - Karachi" or "Web Developer at TechCorp"
+        const cleanTitle = res.title.replace(/\| LinkedIn/gi, '').trim();
+        const parts = cleanTitle.split(/ - | \| /);
+        
+        if (parts.length >= 2) {
+          title = parts[0].trim();
+          companyName = parts[1].trim();
+        } else {
+          title = cleanTitle;
+        }
+
+        if (title.includes(' at ')) {
+          const atSplit = title.split(' at ');
+          title = atSplit[0].trim();
+          companyName = atSplit[1].trim();
+        }
+
+        return {
+          title: title,
+          companyName: companyName,
+          location: location,
+          url: res.url
+        };
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      jobs: items
+      jobs: jobs
     });
 
   } catch (err: any) {
