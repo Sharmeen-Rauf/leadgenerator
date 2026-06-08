@@ -29,9 +29,9 @@ export async function POST(req: Request) {
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
     
     // Parse Google Search results to extract Job info
-    let jobs = [];
-    if (items.length > 0 && items[0].organicResults) {
-      jobs = items[0].organicResults.map((res: any) => {
+    let jobs: any[] = [];
+    if (items.length > 0 && (items[0] as any).organicResults) {
+      jobs = (items[0] as any).organicResults.map((res: any) => {
         let title = keyword;
         let companyName = 'Unknown Company';
         
