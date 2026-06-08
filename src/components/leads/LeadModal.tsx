@@ -275,12 +275,13 @@ function parseLeadNotes(notesStr: string): ParsedNotes {
 }
 
 // ---- TABS ----
-type TabId = 'diagnostic' | 'reviews' | 'contacts' | 'pitch' | 'plan';
+type TabId = 'diagnostic' | 'reviews' | 'contacts' | 'posts' | 'pitch' | 'plan';
 
 const TAB_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'diagnostic', label: 'Diagnostic', icon: <BarChart2 className="w-3.5 h-3.5" /> },
   { id: 'reviews', label: 'Reviews', icon: <Star className="w-3.5 h-3.5" /> },
   { id: 'contacts', label: 'Contacts', icon: <Phone className="w-3.5 h-3.5" /> },
+  { id: 'posts', label: 'Social/Posts', icon: <MessageSquare className="w-3.5 h-3.5" /> },
   { id: 'pitch', label: 'AI Pitch', icon: <Sparkles className="w-3.5 h-3.5" /> },
   { id: 'plan', label: 'Plan', icon: <Target className="w-3.5 h-3.5" /> },
 ];
@@ -311,6 +312,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [body, setBody] = useState('');
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
+  const [posts, setPosts] = useState<any[]>([]);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -406,6 +408,34 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     }
   };
 
+  const [deepScraping, setDeepScraping] = useState(false);
+  const handleDeepScrape = async () => {
+    if (!lead) return;
+    const parsed = parseLeadNotes(lead.notes || '');
+    if (!parsed.linkedinUrl || parsed.linkedinUrl === 'N/A') {
+      showToast('No LinkedIn URL found to scrape', 'error');
+      return;
+    }
+    setDeepScraping(true);
+    showToast('Deep scraping LinkedIn profile...', 'success');
+    try {
+      const res = await fetch('/api/scrape/linkedin/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: parsed.linkedinUrl })
+      });
+      if (!res.ok) throw new Error('Deep scrape failed');
+      const data = await res.json();
+      showToast('Profile scraped successfully!', 'success');
+      // Ideally we update the lead here, but for now just show success
+      // as the data would be fed to the AI or updated in Supabase.
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setDeepScraping(false);
+    }
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
     setCopied(true);
@@ -428,12 +458,84 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     }
   };
 
-  const handleRegenerate = () => {
-    const keys: ('seo' | 'redesign' | 'ads' | 'outbound')[] = ['seo', 'redesign', 'ads', 'outbound'];
-    const currentIdx = keys.indexOf(template);
-    const next = keys[(currentIdx + 1) % keys.length];
-    setTemplate(next);
-    showToast(`Switched to ${next.toUpperCase()} template`, "success");
+  const [generatingPitch, setGeneratingPitch] = useState(false);
+
+  const handleRegenerate = async () => {
+    if (!lead) return;
+    setGeneratingPitch(true);
+    setSubject("Generating subject...");
+    setBody("Claude AI is analyzing the lead and writing a hyper-personalized pitch...");
+    
+    try {
+      const parsedNotes = parseLeadNotes(lead.notes || '');
+      const res = await fetch('/api/ai/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name: lead.company_name,
+          website: lead.website,
+          email: lead.email,
+          niche: lead.niche,
+          location: lead.location,
+          rating: lead.rating,
+          review_count: lead.review_count,
+          ai_score: lead.ai_score,
+          seo_score: lead.seo_score,
+          gaps: lead.gaps || [],
+          platform: lead.platform,
+          site_speed: lead.site_speed,
+          ssl_status: lead.ssl_status,
+          est_revenue_loss: lead.est_revenue_loss,
+          vulnerabilities: lead.vulnerabilities || [],
+          decision_maker: parsedNotes.decisionMaker,
+          angle: template,
+          tone: 'professional',
+          recent_posts: posts
+        })
+      });
+
+      if (!res.ok) throw new Error("API request failed");
+
+      if (res.headers.get('Content-Type')?.includes('text/event-stream')) {
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        if (!reader) throw new Error("No reader");
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6);
+              if (dataStr === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.type === 'complete' && parsed.result) {
+                  setSubject(parsed.result.subject || '');
+                  setBody(parsed.result.body || '');
+                  showToast("AI Pitch Generated Successfully", "success");
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      } else {
+        const data = await res.json();
+        if (data.subject && data.body) {
+          setSubject(data.subject);
+          setBody(data.body);
+          showToast("AI Pitch Generated", "success");
+        }
+      }
+    } catch (err: any) {
+      showToast("Failed to generate AI pitch", "error");
+      setSubject(templates[template].s);
+      setBody(templates[template].b);
+    } finally {
+      setGeneratingPitch(false);
+    }
   };
 
   return (
@@ -489,7 +591,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
         <div className="flex-1 overflow-y-auto min-h-0">
           {activeTab === 'diagnostic' && <DiagnosticTab lead={lead} scoring={scoring} features={features} vulns={vulns} tempLabel={tempLabel} tempColor={tempColor} bestService={bestService} estLeadsLost={estLeadsLost} dealMin={dealMin} dealMax={dealMax} barsAnimated={barsAnimated} />}
           {activeTab === 'reviews' && <ReviewsTab lead={lead} />}
-          {activeTab === 'contacts' && <ContactsTab lead={lead} onEnrich={handleEnrich} enriching={enriching} />}
+          {activeTab === 'contacts' && <ContactsTab lead={lead} onEnrich={handleEnrich} enriching={enriching} onDeepScrape={handleDeepScrape} deepScraping={deepScraping} />}
+          {activeTab === 'posts' && <PostsTab lead={lead} posts={posts} setPosts={setPosts} />}
           {activeTab === 'pitch' && <PitchTab lead={lead} template={template} setTemplate={setTemplate} subject={subject} setSubject={setSubject} body={body} setBody={setBody} copied={copied} handleCopy={handleCopy} />}
           {activeTab === 'plan' && <PlanTab lead={lead} notes={notes} setNotes={setNotes} handleSaveNotes={handleSaveNotes} savingNotes={savingNotes} filteredLogs={filteredLogs} />}
         </div>
@@ -505,9 +608,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
           <div className="flex gap-2.5">
             <button
               onClick={handleRegenerate}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-[#00D4FF]/25 rounded-md text-[10px] font-mono font-bold text-[#00D4FF] hover:bg-[#00D4FF]/10 hover:border-[#00D4FF]/50 transition-all cursor-pointer uppercase tracking-wider"
+              disabled={generatingPitch}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-[#00D4FF]/25 rounded-md text-[10px] font-mono font-bold text-[#00D4FF] hover:bg-[#00D4FF]/10 hover:border-[#00D4FF]/50 transition-all cursor-pointer uppercase tracking-wider disabled:opacity-50"
             >
-              <Sparkles className="w-3.5 h-3.5" /> Regenerate Sequence
+              <Sparkles className={`w-3.5 h-3.5 ${generatingPitch ? 'animate-pulse' : ''}`} /> 
+              {generatingPitch ? 'Generating...' : 'Regenerate Sequence'}
             </button>
             <button
               onClick={handleSendLog}
@@ -766,9 +871,11 @@ interface ContactsTabProps {
   lead: Lead;
   onEnrich?: () => Promise<void>;
   enriching: boolean;
+  onDeepScrape?: () => Promise<void>;
+  deepScraping?: boolean;
 }
 
-function ContactsTab({ lead, onEnrich, enriching }: ContactsTabProps) {
+function ContactsTab({ lead, onEnrich, enriching, onDeepScrape, deepScraping }: ContactsTabProps) {
   const parsed = parseLeadNotes(lead.notes || '');
 
   const contactFields = [
@@ -870,23 +977,38 @@ function ContactsTab({ lead, onEnrich, enriching }: ContactsTabProps) {
               <span className="text-neutral-600 text-[9px]">No LinkedIn Profile linked</span>
             )}
 
-            {onEnrich && (
-              <button
-                onClick={onEnrich}
-                disabled={enriching}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#00D4FF] to-[#7C3AED] hover:shadow-[0_0_12px_rgba(0,212,255,0.3)] text-white disabled:opacity-50 rounded text-[9.5px] font-bold uppercase tracking-wider cursor-pointer transition-all shrink-0 font-mono"
-              >
-                {enriching ? (
-                  <>
-                    <RefreshCw className="w-3 h-3 animate-spin" /> Enriching...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3" /> {hasDm ? 'Re-Enrich Contact' : 'Enrich Contact'}
-                  </>
-                )}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {hasLinkedin && onDeepScrape && (
+                <button
+                  onClick={onDeepScrape}
+                  disabled={deepScraping}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2]/15 hover:bg-[#0A66C2]/25 text-[#0A66C2] disabled:opacity-50 rounded text-[9.5px] font-bold uppercase tracking-wider cursor-pointer transition-all shrink-0 font-mono"
+                >
+                  {deepScraping ? (
+                    <><RefreshCw className="w-3 h-3 animate-spin" /> Scraping Profile...</>
+                  ) : (
+                    <><Linkedin className="w-3 h-3" /> Deep Scrape</>
+                  )}
+                </button>
+              )}
+              {onEnrich && (
+                <button
+                  onClick={onEnrich}
+                  disabled={enriching}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#00D4FF] to-[#7C3AED] hover:shadow-[0_0_12px_rgba(0,212,255,0.3)] text-white disabled:opacity-50 rounded text-[9.5px] font-bold uppercase tracking-wider cursor-pointer transition-all shrink-0 font-mono"
+                >
+                  {enriching ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" /> Enriching...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" /> {hasDm ? 'Re-Enrich Contact' : 'Enrich Contact'}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1190,6 +1312,103 @@ function PlanTab({ lead, notes, setNotes, handleSaveNotes, savingNotes, filtered
             <Save className="w-3.5 h-3.5" /> {savingNotes ? 'Saving...' : 'Save Notes'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ==============================================================
+// TAB 6: POSTS (LINKEDIN)
+// ==============================================================
+interface PostsTabProps {
+  lead: Lead;
+  posts: any[];
+  setPosts: (posts: any[]) => void;
+}
+
+function PostsTab({ lead, posts, setPosts }: PostsTabProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { showToast } = useToast();
+
+  const handleFetchPosts = async () => {
+    const parsed = parseLeadNotes(lead.notes || '');
+    if (!parsed.linkedinUrl || parsed.linkedinUrl === 'N/A') {
+      setError('No LinkedIn Profile URL found for this contact.');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/scrape/linkedin/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: parsed.linkedinUrl, limit: 5 })
+      });
+      if (!res.ok) throw new Error('Failed to fetch posts');
+      const data = await res.json();
+      if (data.posts && data.posts.length > 0) {
+        setPosts(data.posts);
+        showToast('Successfully scraped recent posts', 'success');
+      } else {
+        setError('No recent posts found for this user.');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-6 font-mono text-[11px]">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-[12px] text-white font-extrabold uppercase tracking-widest">
+          Recent LinkedIn Activity
+        </div>
+        <button
+          onClick={handleFetchPosts}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0A66C2]/15 border border-[#0A66C2]/35 hover:bg-[#0A66C2]/25 text-[#0A66C2] disabled:opacity-50 rounded text-[9.5px] font-bold uppercase tracking-wider cursor-pointer transition-all"
+        >
+          {loading ? (
+            <><RefreshCw className="w-3 h-3 animate-spin" /> Scraping...</>
+          ) : (
+            <><Linkedin className="w-3 h-3" /> Scrape Posts</>
+          )}
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-[#FF3366] bg-[#FF3366]/10 border border-[#FF3366]/20 p-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {posts.length === 0 && !loading && !error && (
+        <div className="text-center text-neutral-500 py-10 border border-dashed border-neutral-800 rounded">
+          No posts scraped yet. Click &quot;Scrape Posts&quot; to fetch recent activity.
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {posts.map((post, i) => (
+          <div key={i} className="diag-stat-card bg-[#0A0E1A]/60">
+            <div className="text-neutral-400 mb-3 whitespace-pre-wrap leading-relaxed">
+              {post.text || post.content || 'No text content'}
+            </div>
+            <div className="flex items-center gap-4 text-[9px] text-neutral-500 border-t border-neutral-800 pt-2 mt-2">
+              <span className="flex items-center gap-1"><span className="text-[#00D4FF]">👍</span> {post.numLikes || post.likesCount || 0} Likes</span>
+              <span className="flex items-center gap-1"><span className="text-[#FFB800]">💬</span> {post.numComments || post.commentsCount || 0} Comments</span>
+              {post.postUrl && (
+                <a href={post.postUrl} target="_blank" rel="noreferrer" className="ml-auto text-[#0A66C2] hover:underline flex items-center gap-1">
+                  View on LinkedIn <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

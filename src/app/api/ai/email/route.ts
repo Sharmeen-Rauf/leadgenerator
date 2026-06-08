@@ -22,9 +22,9 @@ interface EmailGenRequest {
   ssl_status: string;
   est_revenue_loss: number;
   vulnerabilities: string[];
-  decision_maker?: string;
   angle: 'seo' | 'redesign' | 'ads' | 'social' | 'general';
   tone: 'professional' | 'casual' | 'urgent';
+  recent_posts?: any[];
 }
 
 interface EmailResult {
@@ -133,7 +133,7 @@ SSL: ${lead.ssl_status}
 Gaps: ${(lead.gaps || []).join(', ')}
 Top Issues: ${(lead.vulnerabilities || []).slice(0, 3).join('; ')}
 Est. Monthly Loss: $${(lead.est_revenue_loss || 0).toLocaleString()}
-
+${lead.recent_posts && lead.recent_posts.length > 0 ? `Recent Social Media Posts from Lead:\n${lead.recent_posts.map((p, i) => `[Post ${i+1}]: ${p.text || p.content}`).join('\n')}\n` : ''}
 Angle: ${lead.angle} — ${angleDescriptions[lead.angle] || angleDescriptions.general}`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {

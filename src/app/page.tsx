@@ -6,6 +6,7 @@ import { Layout } from "../components/layout/Layout";
 import { Dashboard } from "../views/Dashboard";
 import { AllLeads } from "../views/AllLeads";
 import { LeadScraper } from "../views/LeadScraper";
+import { JobScraper } from "../views/JobScraper";
 import { Campaigns } from "../views/Campaigns";
 import { OutreachLog } from "../views/OutreachLog";
 import { Sequences } from "../views/Sequences";
@@ -100,6 +101,19 @@ function CommandCenter() {
       case "scraper":
         return (
           <LeadScraper 
+            onAddLeads={async (newLeadsList) => {
+              const res = await addLeads(newLeadsList);
+              if (res) {
+                setCredits(prev => Math.max(0, prev - newLeadsList.length));
+              }
+              return res;
+            }} 
+            setActivePage={setActivePage} 
+          />
+        );
+      case "job-scraper":
+        return (
+          <JobScraper 
             onAddLeads={async (newLeadsList) => {
               const res = await addLeads(newLeadsList);
               if (res) {
