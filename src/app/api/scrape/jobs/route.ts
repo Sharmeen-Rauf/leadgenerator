@@ -16,15 +16,16 @@ export async function POST(req: Request) {
     const client = new ApifyClient({ token });
     
     // The user requested a "job scrapper". 
-    // We'll use a common LinkedIn Jobs scraper actor, as B2B intent from LinkedIn is highest.
-    const actorId = 'rockapis/linkedin-jobs-scraper';
+    // We'll use a reliable, active LinkedIn Jobs scraper actor on Apify.
+    const actorId = 'bebity/linkedin-jobs-scraper';
 
     console.log(`Scraping jobs for: ${keyword} in ${location} using ${actorId}`);
 
     const run = await client.actor(actorId).call({
-      searchTitle: keyword,
-      searchLocation: location,
-      maxItems: limit
+      includeKeyword: keyword,
+      locationName: location,
+      count: limit,
+      scrapeCompany: false
     });
 
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
