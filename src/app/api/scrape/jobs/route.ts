@@ -20,12 +20,10 @@ export async function POST(req: Request) {
 
     console.log(`Scraping jobs for: ${keyword} in ${location} using ${actorId}`);
 
-    // Build the query and URL explicitly to enforce the "past 24 hours" Google filter (tbs=qdr:d)
-    const encodedQuery = encodeURIComponent(`site:linkedin.com/jobs/view "${keyword}" "${location}"`);
-    const searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbs=qdr:d`;
-
+    // The "queries" field is strictly required by the Apify Google Search Scraper schema
     const run = await client.actor(actorId).call({
-      customResultsUrl: searchUrl,
+      queries: `site:linkedin.com/jobs/view "${keyword}" "${location}"`,
+      customParameters: "tbs=qdr:d",
       maxPagesPerQuery: 1,
       resultsPerPage: Math.max(10, limit)
     });
