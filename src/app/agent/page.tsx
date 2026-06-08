@@ -314,50 +314,24 @@ Generate a detailed strategy plan. Return ONLY JSON format, no markup:
           filterNoSocial ? 'Missing Instagram or Facebook' : ''
         ].filter(Boolean).join(', ');
 
-        const response = await fetch('/api/demo-claude', {
+        const response = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: `Generate exactly ${batch.targetCount} realistic local business leads for "${batch.niche}" in "${batch.city}, ${batch.state}".
-Filters requested: ${filtersStr || 'None'}. Minimum opportunity score: ${minScore}.
-Return ONLY valid JSON array containing exactly ${batch.targetCount} objects, no markdown:
-[{
-  "name": "Business Name",
-  "category": "${batch.niche}",
-  "city": "${batch.city}",
-  "state": "${batch.state}",
-  "phone": "+1-555-483-9201",
-  "website": "http://www.example.com",
-  "platform": "WordPress",
-  "speedScore": "Slow (4.2s)",
-  "seoScore": 32,
-  "rating": 3.8,
-  "reviews": 24,
-  "hasAnalytics": false,
-  "hasLeadForm": false,
-  "hasBooking": false,
-  "hasBlog": false,
-  "isRunningAds": false,
-  "socialMedia": { "facebook": false, "instagram": false },
-  "gapScore": 84,
-  "opportunityTemp": "HOT",
-  "monthlyRevenueLoss": "$2,900",
-  "dealValue": "$8,700-$17,400/yr",
-  "vulnerabilities": ["No SSL security", "Slow load time", "No Facebook page"],
-  "pitchAngle": "Pitch SSL and page speed optimizations."
-}]`
+            niche: batch.niche,
+            location: `${batch.city}, ${batch.state}`,
+            limit: batch.targetCount
           })
         });
 
         if (response.ok) {
           const payload = await response.json();
-          const clean = payload.content[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-          batchLeads = JSON.parse(clean);
+          batchLeads = payload.leads || [];
         } else {
-          throw new Error('Claude proxy failed');
+          throw new Error('Apify scrape failed');
         }
-      } catch {
-        addTerminalLine(`BATCH CRAWL FAILURE. USING FALLBACK ENRICHMENT SIMULATOR...`, 'warning');
+      } catch (err: any) {
+        addTerminalLine(`BATCH CRAWL FAILURE: ${err.message}. USING FALLBACK...`, 'warning');
         // Generate realistic fallback simulation leads
         batchLeads = Array.from({ length: batch.targetCount }).map((_, idx) => {
           const gap = Math.floor(Math.random() * 50) + 45; // 45-95
@@ -399,43 +373,55 @@ Return ONLY valid JSON array containing exactly ${batch.targetCount} objects, no
           const ratingVal = Number(l.rating) || 0;
           const reviewsVal = Number(l.reviews) || 0;
           const gapScoreVal = Number(l.gapScore || l.score) || 0;
-          const lossVal = Number(l.monthlyRevenueLoss?.replace(/[\$,]/g, '') || l.est_revenue_loss || 0);
+          
+          let lossVal = 0;
+          if (l.scoring && l.scoring.revenue && l.scoring.revenue.estimatedMonthlyLoss) {
+            lossVal = l.scoring.revenue.estimatedMonthlyLoss;
+          } else if (l.monthlyRevenueLoss) {
+             lossVal = Number(l.monthlyRevenueLoss.toString().replace(/[\$,]/g, ''));
+          } else {
+             lossVal = Math.round(gapScoreVal * 42); // fallback
+          }
 
-          const gapsArr: string[] = [];
-          if (l.seoScore < 50) gapsArr.push('SEO');
-          if (l.socialMedia?.facebook === false || l.socialMedia?.instagram === false) gapsArr.push('SOCIAL');
-          if (l.hasWebsite === false || l.website === 'N/A') gapsArr.push('WEB');
-          if (l.hasAnalytics === false) gapsArr.push('EMAIL');
-          if (l.isRunningAds === false) gapsArr.push('ADS');
+          const gapsArr: string[] = l.opps || [];
+          if (gapsArr.length === 0) {
+            if (l.seoScore < 50 || (l.siteAnalysis && l.siteAnalysis.seoScore < 50)) gapsArr.push('SEO');
+            if (l.socialMedia?.facebook === false || l.socialMedia?.instagram === false) gapsArr.push('SOCIAL');
+            if (l.hasWebsite === false || l.website === 'N/A') gapsArr.push('WEB');
+            if (l.hasAnalytics === false) gapsArr.push('EMAIL');
+            if (l.isRunningAds === false) gapsArr.push('ADS');
+          }
+
+          const oppTempRaw = l.opportunityTemp || l.temperature || 'cold';
 
           return {
             id: l.id || `lead-${Math.random().toString(36).substr(2, 9)}`,
-            company_name: l.name || 'Unknown',
+            company_name: l.companyName || l.name || 'Unknown',
             niche: l.category || selectedNiche,
-            location: `${l.city}, ${l.state}`,
+            location: l.address ? `${l.address}, ${l.city}` : `${l.city || batch.city}, ${l.state || batch.state}`,
             rating: ratingVal,
             review_count: reviewsVal,
             phone: l.phone || 'N/A',
             email: l.email || `contact@${l.website || 'domain.com'}`,
             website: l.website || 'N/A',
             ai_score: gapScoreVal,
-            opportunity_temp: (l.opportunityTemp?.toLowerCase() || 'cold') as Lead['opportunity_temp'],
+            opportunity_temp: oppTempRaw.toLowerCase() as Lead['opportunity_temp'],
             gaps: gapsArr,
             est_revenue_loss: lossVal,
             deal_value_min: lossVal * 3,
             deal_value_max: lossVal * 6,
-            platform: l.platform || 'N/A',
-            site_speed: l.speedScore || 'Fast',
-            ssl_status: l.ssl === false ? 'Invalid' : 'Valid',
-            seo_score: l.seoScore || 50,
-            vulnerabilities: l.vulnerabilities || [],
+            platform: (l.siteAnalysis && l.siteAnalysis.cms) || l.platform || 'N/A',
+            site_speed: l.siteAnalysis?.loadTime ? `${(l.siteAnalysis.loadTime / 1000).toFixed(1)}s` : l.speedScore || 'Fast',
+            ssl_status: (l.siteAnalysis?.ssl === false || l.ssl === false) ? 'Invalid' : 'Valid',
+            seo_score: l.siteAnalysis?.seoScore || l.seoScore || 50,
+            vulnerabilities: l.siteAnalysis?.opportunities || l.vulnerabilities || [],
             crm_status: 'new' as const,
             notes: [
               `Decision Maker: ${l.decisionMaker || 'N/A'}`,
-              `Facebook: ${l.socialMedia?.facebook ? 'Linked' : 'N/A'}`,
-              `Instagram: ${l.socialMedia?.instagram ? 'Linked' : 'N/A'}`,
-              `Google Maps: N/A`,
-              ...(l.vulnerabilities || [])
+              `Facebook: ${l.social?.fb || l.socialMedia?.facebook ? 'Linked' : 'N/A'}`,
+              `Instagram: ${l.social?.insta || l.socialMedia?.instagram ? 'Linked' : 'N/A'}`,
+              `Google Maps: ${l.placeUrl ? 'Linked' : 'N/A'}`,
+              ...(l.siteAnalysis?.opportunities || l.vulnerabilities || [])
             ].join('\n'),
             source_query: `AI Agent: ${missionInput}`,
             service_pitched: l.pitchAngle || 'N/A'
@@ -453,6 +439,19 @@ Return ONLY valid JSON array containing exactly ${batch.targetCount} objects, no
           
           for (const l of formattedBatch) {
             addTerminalLine(`ACQUIRED: ${l.company_name} [GAP: ${l.ai_score} PTS]`, 'success');
+            
+            // Send WhatsApp Alert
+            fetch('/api/whatsapp-alert', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: l.notes?.match(/Decision Maker: (.*)/)?.[1] || 'N/A',
+                company: l.company_name,
+                email: l.email,
+                score: l.ai_score
+              })
+            }).catch(console.error);
+
             await new Promise(resolve => setTimeout(resolve, 100));
           }
           
