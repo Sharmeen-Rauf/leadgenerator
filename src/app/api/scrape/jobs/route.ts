@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     console.log(`Scraping jobs for: ${keyword} in ${location} using ${actorId}`);
 
     const run = await client.actor(actorId).call({
-      queries: [`site:linkedin.com/jobs/view "${keyword}" "${location}"`],
+      queries: `site:linkedin.com/jobs/view "${keyword}" "${location}"`,
       maxPagesPerQuery: 1,
       resultsPerPage: Math.max(10, limit)
     });
