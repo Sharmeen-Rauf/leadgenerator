@@ -735,6 +735,79 @@ function DiagnosticTab({ lead, scoring, features, vulns, tempLabel, tempColor, b
         <FeatureRow label="AI Ready (AEO)" value={`${features.aiReadyScore}/100`} status={features.aiReady ? 'active' : 'partial'} showDot />
       </div>
 
+      {/* --- REVENUE LEAKAGE ANALYSIS --- */}
+      <div className="diag-stat-card border-[#FF3366]/30 bg-[#FF3366]/5 mt-4">
+        <div className="text-[10px] text-[#FF3366] uppercase tracking-widest font-extrabold mb-3 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" /> Revenue Leakage Analysis
+        </div>
+        <div className="space-y-3">
+          {/* 1. Load Speed */}
+          <div className="flex items-start gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${features.speed?.includes('Slow') ? 'bg-[#FF3366]' : 'bg-[#39FF14]'}`} />
+            <div>
+              <div className="text-white font-bold text-[10px]">1. Website Loading Speed: {features.speed}</div>
+              <div className="text-neutral-400 text-[9px] mt-0.5 leading-relaxed">
+                {features.speed?.includes('Slow') 
+                  ? "A 1-second delay in load time drops conversions ~7%. This site loads slowly. If they get 1,000 visitors a month, that's hundreds of lost leads and thousands in lost revenue." 
+                  : "Good load time. No major conversion leakage here."}
+              </div>
+            </div>
+          </div>
+          
+          {/* 2. Website Existence */}
+          <div className="flex items-start gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${lead.website && lead.website !== 'N/A' && lead.website !== 'null' ? 'bg-[#39FF14]' : 'bg-[#FF3366]'}`} />
+            <div>
+              <div className="text-white font-bold text-[10px]">2. Digital Presence: {lead.website && lead.website !== 'N/A' && lead.website !== 'null' ? 'Website Found' : 'No Website'}</div>
+              <div className="text-neutral-400 text-[9px] mt-0.5 leading-relaxed">
+                {lead.website && lead.website !== 'N/A' && lead.website !== 'null'
+                  ? "They have an active website to capture traffic."
+                  : "Critical failure: No website detected. They are losing 100% of online search traffic to competitors."}
+              </div>
+            </div>
+          </div>
+
+          {/* 3. SEO */}
+          <div className="flex items-start gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${features.seoScore >= 70 ? 'bg-[#39FF14]' : 'bg-[#FF3366]'}`} />
+            <div>
+              <div className="text-white font-bold text-[10px]">3. SEO Configuration: {features.seoScore}/100 Score</div>
+              <div className="text-neutral-400 text-[9px] mt-0.5 leading-relaxed">
+                {features.seoScore >= 70
+                  ? "Properly optimized for search engines."
+                  : "Missing basic SEO tags. Google cannot rank this site, meaning zero organic inbound leads. Huge revenue leak."}
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Mobile Web */}
+          <div className="flex items-start gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${lead.gaps?.includes('WEB') ? 'bg-[#FF3366]' : 'bg-[#39FF14]'}`} />
+            <div>
+              <div className="text-white font-bold text-[10px]">4. Mobile Responsiveness: {lead.gaps?.includes('WEB') ? 'Issues Detected' : 'Optimized'}</div>
+              <div className="text-neutral-400 text-[9px] mt-0.5 leading-relaxed">
+                {lead.gaps?.includes('WEB')
+                  ? "Mobile issues flag detected. 60% of local searches are mobile; a bad mobile site immediately kills conversions."
+                  : "Site appears modern and likely responsive."}
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Contact Friction */}
+          <div className="flex items-start gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${(lead.phone && lead.phone !== 'N/A' && lead.phone !== 'null') || (lead.email && lead.email !== 'N/A' && lead.email !== 'null') ? 'bg-[#39FF14]' : 'bg-[#FF3366]'}`} />
+            <div>
+              <div className="text-white font-bold text-[10px]">5. Contact Friction: {(lead.phone && lead.phone !== 'N/A' && lead.phone !== 'null') || (lead.email && lead.email !== 'N/A' && lead.email !== 'null') ? 'Contact Info Found' : 'Hard to Contact'}</div>
+              <div className="text-neutral-400 text-[9px] mt-0.5 leading-relaxed">
+                {(lead.phone && lead.phone !== 'N/A' && lead.phone !== 'null') || (lead.email && lead.email !== 'N/A' && lead.email !== 'null')
+                  ? "Phone/Email is accessible, minimizing friction for leads."
+                  : "No phone or email readily found on the site. If a prospect has to search for 30+ seconds to find contact info, they will bounce to a competitor."}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* --- VULNERABILITIES --- */}
       {vulns.length > 0 && (
         <div className="space-y-2">
