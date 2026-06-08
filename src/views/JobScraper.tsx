@@ -21,6 +21,96 @@ export const JobScraper: React.FC<JobScraperProps> = ({
   const [committing, setCommitting] = useState(false);
   const { showToast } = useToast();
 
+  // --- AUTO RADAR STATE ---
+  const [radarNiches, setRadarNiches] = useState<{keyword: string, location: string}[]>([]);
+  const [newRadarKeyword, setNewRadarKeyword] = useState('');
+  const [newRadarLocation, setNewRadarLocation] = useState('');
+  const [isPolling, setIsPolling] = useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pitchradar_monitors');
+      if (saved) setRadarNiches(JSON.parse(saved));
+    }
+  }, []);
+
+  const handleAddRadar = () => {
+    if (!newRadarKeyword || !newRadarLocation) return;
+    if (radarNiches.length >= 3) {
+      showToast('Maximum 3 Active Radars allowed.', 'warning');
+      return;
+    }
+    const updated = [...radarNiches, { keyword: newRadarKeyword, location: newRadarLocation }];
+    setRadarNiches(updated);
+    localStorage.setItem('pitchradar_monitors', JSON.stringify(updated));
+    setNewRadarKeyword('');
+    setNewRadarLocation('');
+    showToast(`Radar activated for ${newRadarKeyword} in ${newRadarLocation}`, 'success');
+  };
+
+  const handleRemoveRadar = (index: number) => {
+    const updated = radarNiches.filter((_, i) => i !== index);
+    setRadarNiches(updated);
+    localStorage.setItem('pitchradar_monitors', JSON.stringify(updated));
+  };
+
+  // --- BACKGROUND POLLING ---
+  React.useEffect(() => {
+    if (radarNiches.length === 0) return;
+    
+    const interval = setInterval(async () => {
+      if (isPolling) return;
+      setIsPolling(true);
+      
+      try {
+        for (const radar of radarNiches) {
+          const res = await fetch('/api/scrape/jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyword: radar.keyword, location: radar.location, limit: 2 })
+          });
+          const data = await res.json();
+          if (data.jobs && data.jobs.length > 0) {
+            const leadsToCommit = data.jobs.map((job: any) => ({
+                company_name: job.companyName || 'Unknown Hiring Company',
+                niche: job.title || 'Hiring Company',
+                location: job.location || 'N/A',
+                rating: 0,
+                review_count: 0,
+                phone: 'N/A',
+                email: 'N/A',
+                website: 'N/A',
+                ai_score: 95,
+                opportunity_temp: 'hot' as const,
+                gaps: ['HIRING', 'RADAR'],
+                est_revenue_loss: 5000,
+                deal_value_min: 3000,
+                deal_value_max: 10000,
+                platform: 'N/A',
+                site_speed: 'N/A',
+                ssl_status: 'N/A',
+                seo_score: 0,
+                vulnerabilities: [`Actively hiring for: ${job.title}`],
+                crm_status: 'new' as const,
+                notes: `[AUTO-RADAR DETECTED]\nIntent Signal: Actively hiring for ${job.title}.\nJob Link: ${job.url || 'N/A'}`,
+                source_query: `Auto-Radar: ${job.title}`,
+                service_pitched: 'Outbound SDR / Talent Acquisition'
+              }));
+              
+              await onAddLeads(leadsToCommit);
+              showToast(`[AUTO-RADAR] Found ${data.jobs.length} new postings for ${radar.keyword}`, 'success');
+          }
+        }
+      } catch (err) {
+        console.error("Auto-Radar poll error", err);
+      } finally {
+        setIsPolling(false);
+      }
+    }, 60000); // 1 minute for demo purposes
+    
+    return () => clearInterval(interval);
+  }, [radarNiches, isPolling, onAddLeads, showToast]);
+
   const handleRunScan = async (keyword: string, location: string, limit: number) => {
     setLoading(true);
     setProgress(0);
@@ -136,30 +226,93 @@ export const JobScraper: React.FC<JobScraperProps> = ({
       <SearchForm onSearch={handleRunScan} loading={loading} />
 
       {!loading && progress === 0 && scrapedJobs.length === 0 && (
-        <div className="tactical-glass p-5 border-[#FFB800]/25 bg-[#FFB800]/5 rounded-lg space-y-4 font-mono select-none animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2 border-b border-[#FFB800]/10 pb-2.5">
-            <Zap className="w-4 h-4 text-[#FFB800] fill-[#FFB800]/10 animate-pulse" />
-            <h4 className="text-[10px] font-black text-white uppercase tracking-widest">
-              Job Scraping Guide
-            </h4>
-          </div>
-          <p className="text-[9.5px] text-[#e2e8f0]/80 uppercase leading-relaxed font-semibold">
-            Use this tool to find companies that are actively hiring for specific roles. Companies spending money on hiring are prime targets for B2B services.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[9px]">
-            <div className="bg-black/45 border border-neutral-850 rounded p-3 space-y-1">
-              <div className="text-neutral-500 font-extrabold font-mono text-[8px]">01 // KEYWORD</div>
-              <h5 className="font-extrabold text-white uppercase">Search by Role</h5>
-              <p className="text-neutral-450 uppercase leading-relaxed">
-                Enter a job title like <span className="text-[#FFB800]">"React Developer"</span> or <span className="text-[#FFB800]">"Marketing Manager"</span>.
-              </p>
+        <div className="space-y-6">
+          <div className="tactical-glass p-5 border-[#FFB800]/25 bg-[#FFB800]/5 rounded-lg space-y-4 font-mono select-none animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 border-b border-[#FFB800]/10 pb-2.5">
+              <Zap className="w-4 h-4 text-[#FFB800] fill-[#FFB800]/10 animate-pulse" />
+              <h4 className="text-[10px] font-black text-white uppercase tracking-widest">
+                Job Scraping Guide
+              </h4>
             </div>
-            <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 rounded p-3 space-y-1">
-              <div className="text-[#FFB800]/70 font-extrabold font-mono text-[8px]">02 // CONVERT</div>
-              <h5 className="font-extrabold text-[#FFB800] uppercase">Convert to Leads</h5>
-              <p className="text-[#FFB800]/80 uppercase leading-relaxed">
-                Scraped companies can be instantly added to your CRM pipeline as <span className="text-white font-extrabold">HOT LEADS</span>.
-              </p>
+            <p className="text-[9.5px] text-[#e2e8f0]/80 uppercase leading-relaxed font-semibold">
+              Use this tool to find companies that are actively hiring for specific roles. Companies spending money on hiring are prime targets for B2B services.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[9px]">
+              <div className="bg-black/45 border border-neutral-850 rounded p-3 space-y-1">
+                <div className="text-neutral-500 font-extrabold font-mono text-[8px]">01 // KEYWORD</div>
+                <h5 className="font-extrabold text-white uppercase">Search by Role</h5>
+                <p className="text-neutral-450 uppercase leading-relaxed">
+                  Enter a job title like <span className="text-[#FFB800]">"React Developer"</span> or <span className="text-[#FFB800]">"Marketing Manager"</span>.
+                </p>
+              </div>
+              <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 rounded p-3 space-y-1">
+                <div className="text-[#FFB800]/70 font-extrabold font-mono text-[8px]">02 // CONVERT</div>
+                <h5 className="font-extrabold text-[#FFB800] uppercase">Convert to Leads</h5>
+                <p className="text-[#FFB800]/80 uppercase leading-relaxed">
+                  Scraped companies can be instantly added to your CRM pipeline as <span className="text-white font-extrabold">HOT LEADS</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* AUTO-RADAR SECTION */}
+          <div className="tactical-glass p-5 border-[#00D4FF]/20 rounded-lg font-mono">
+            <div className="flex items-center justify-between border-b border-[#00D4FF]/10 pb-2.5 mb-4">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-[#00D4FF] animate-pulse" />
+                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">
+                  Autonomous Radar Monitors
+                </h4>
+              </div>
+              <span className="text-[8px] text-[#00D4FF] font-bold tracking-widest uppercase bg-[#00D4FF]/10 px-2 py-0.5 rounded">
+                Active: {radarNiches.length}/3
+              </span>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="Niche (e.g. Web Developer)" 
+                  value={newRadarKeyword}
+                  onChange={e => setNewRadarKeyword(e.target.value)}
+                  className="bg-black/50 border border-[#00D4FF]/30 text-[#00D4FF] px-3 py-1.5 text-[10px] rounded outline-none w-1/2 focus:border-[#00D4FF]"
+                />
+                <input 
+                  type="text"
+                  placeholder="City (e.g. Karachi)" 
+                  value={newRadarLocation}
+                  onChange={e => setNewRadarLocation(e.target.value)}
+                  className="bg-black/50 border border-[#00D4FF]/30 text-[#00D4FF] px-3 py-1.5 text-[10px] rounded outline-none w-1/2 focus:border-[#00D4FF]"
+                />
+                <button 
+                  onClick={handleAddRadar}
+                  className="bg-[#00D4FF]/20 hover:bg-[#00D4FF]/30 text-[#00D4FF] px-4 py-1.5 rounded text-[9px] font-bold uppercase transition-colors"
+                >
+                  Deploy
+                </button>
+              </div>
+
+              {radarNiches.length > 0 && (
+                <div className="grid gap-2">
+                  {radarNiches.map((radar, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-black/30 border border-[#00D4FF]/15 px-3 py-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#00D4FF] shadow-[0_0_5px_#00D4FF] animate-pulse" />
+                        <span className="text-[10px] text-white font-bold">{radar.keyword}</span>
+                        <span className="text-[10px] text-neutral-500">in {radar.location}</span>
+                      </div>
+                      <button 
+                        onClick={() => handleRemoveRadar(idx)}
+                        className="text-[8px] text-red-400 hover:text-red-300 uppercase font-bold tracking-wider"
+                      >
+                        Deactivate
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-[8px] text-neutral-500 italic mt-1">System is silently polling Google indexing for these niches every 60 seconds.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

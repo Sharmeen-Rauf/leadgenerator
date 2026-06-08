@@ -20,8 +20,12 @@ export async function POST(req: Request) {
 
     console.log(`Scraping jobs for: ${keyword} in ${location} using ${actorId}`);
 
+    // Build the query and URL explicitly to enforce the "past 24 hours" Google filter (tbs=qdr:d)
+    const encodedQuery = encodeURIComponent(`site:linkedin.com/jobs/view "${keyword}" "${location}"`);
+    const searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbs=qdr:d`;
+
     const run = await client.actor(actorId).call({
-      queries: `site:linkedin.com/jobs/view "${keyword}" "${location}"`,
+      customResultsUrl: searchUrl,
       maxPagesPerQuery: 1,
       resultsPerPage: Math.max(10, limit)
     });
