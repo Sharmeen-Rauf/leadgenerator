@@ -25,6 +25,7 @@ interface EmailGenRequest {
   angle: 'seo' | 'redesign' | 'ads' | 'social' | 'general';
   tone: 'professional' | 'casual' | 'urgent';
   recent_posts?: any[];
+  decision_maker?: string;
 }
 
 interface EmailResult {

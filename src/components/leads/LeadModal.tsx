@@ -313,6 +313,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const [posts, setPosts] = useState<any[]>([]);
+  const [deepScraping, setDeepScraping] = useState(false);
+  const [generatingPitch, setGeneratingPitch] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -408,7 +410,6 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     }
   };
 
-  const [deepScraping, setDeepScraping] = useState(false);
   const handleDeepScrape = async () => {
     if (!lead) return;
     const parsed = parseLeadNotes(lead.notes || '');
@@ -457,8 +458,6 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       setSending(false);
     }
   };
-
-  const [generatingPitch, setGeneratingPitch] = useState(false);
 
   const handleRegenerate = async () => {
     if (!lead) return;

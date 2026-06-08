@@ -14,7 +14,8 @@ export const Input: React.FC<InputProps> = ({
   className = '',
   ...props
 }) => {
-  const inputId = id || Math.random().toString(36).substring(2, 9);
+  const generatedId = React.useId();
+  const inputId = id || generatedId;
   
   return (
     <div className={`relative flex-1 min-w-[200px] scanline-focus ${containerClassName}`}>

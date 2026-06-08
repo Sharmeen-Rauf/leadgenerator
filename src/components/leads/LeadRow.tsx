@@ -82,7 +82,7 @@ export const LeadRow: React.FC<LeadRowProps> = ({
         <div className="text-[9px] text-neutral-500 mt-1 font-mono uppercase tracking-wider flex items-center gap-1.5">
           <MapPin className="w-3 h-3 text-[#00D4FF]" />
           <span>{lead.niche}</span>
-          <span className="text-neutral-700 font-bold">//</span>
+          <span className="text-neutral-700 font-bold">{"//"}</span>
           <span>{lead.location}</span>
         </div>
       </div>

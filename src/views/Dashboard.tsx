@@ -207,7 +207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <div>
                     <h5 className="text-[11px] font-extrabold text-white uppercase">{lead.company_name}</h5>
-                    <div className="text-[8px] text-neutral-500 mt-1 uppercase">{lead.niche} // {lead.location}</div>
+                    <div className="text-[8px] text-neutral-500 mt-1 uppercase">{lead.niche} {"//"} {lead.location}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-[#39FF14] text-xs font-extrabold">{lead.ai_score} PTS</span>
